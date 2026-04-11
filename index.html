@@ -2,6 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>PAC Contabilidad Pro</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -19,9 +22,9 @@
             </div>
         </div>
         <nav>
-            <button class="nav-btn active" onclick="verTab('principal')">Página Principal</button>
-            <button class="nav-btn" onclick="verTab('clientes')">Hojas de Clientes</button>
-            <button class="nav-btn" onclick="verTab('gastos')">Gastos/Retiros</button>
+            <button class="nav-btn active" onclick="verTab('principal')">Inicio</button>
+            <button class="nav-btn" onclick="verTab('clientes')">Clientes</button>
+            <button class="nav-btn" onclick="verTab('gastos')">Gastos</button>
         </nav>
     </header>
 
@@ -30,33 +33,33 @@
             <div class="grid-totales">
                 <div class="card-total"><h3>Banco</h3><p id="t-banco">$0</p></div>
                 <div class="card-total"><h3>Efectivo</h3><p id="t-efectivo">$0</p></div>
-                <div class="card-total"><h3>Tarjetas x Cobrar</h3><p id="t-tarjetas">$0</p></div>
-                <div class="card-total"><h3>Fondo Común</h3><p id="t-fondo">$0</p></div>
-                <div class="card-total"><h3>Retiro Pablo</h3><p id="t-pablo" style="color:var(--yellow)">$0</p></div>
-                <div class="card-total"><h3>Retiro Fer</h3><p id="t-fer" style="color:var(--yellow)">$0</p></div>
+                <div class="card-total"><h3>Tarjetas</h3><p id="t-tarjetas">$0</p></div>
+                <div class="card-total"><h3>Fondo</h3><p id="t-fondo">$0</p></div>
+                <div class="card-total"><h3>Pablo</h3><p id="t-pablo" style="color:var(--yellow)">$0</p></div>
+                <div class="card-total"><h3>Fer</h3><p id="t-fer" style="color:var(--yellow)">$0</p></div>
             </div>
 
             <div class="seccion-form">
-                <h3>Cargar Saldos Heredados (Inicio de Mes)</h3>
+                <h3>Saldos Heredados</h3>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <input type="number" id="h-banco" placeholder="Banco $">
-                    <input type="number" id="h-efectivo" placeholder="Efectivo $">
-                    <input type="number" id="h-tarjetas" placeholder="Tarjetas $">
-                    <input type="number" id="h-fondo" placeholder="Fondo Común $">
+                    <input type="number" id="h-efectivo" placeholder="Efe $">
+                    <input type="number" id="h-tarjetas" placeholder="Tarj $">
+                    <input type="number" id="h-fondo" placeholder="Fondo $">
                 </div>
-                <button onclick="cargarTodoHeredado()" class="btn btn-blue">Sumar Saldos Heredados</button>
+                <button onclick="cargarTodoHeredado()" class="btn btn-blue">Sumar Saldos</button>
             </div>
 
             <div class="seccion-form">
                 <h3>Movimientos y Cierre</h3>
                 <input type="number" id="trans-monto" placeholder="Monto $">
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-                    <button onclick="transferirBancoFondo()" class="btn btn-blue" style="flex: 1;">Pasar Banco a Fondo</button>
-                    <button onclick="acreditarTarjeta()" class="btn btn-blue" style="background-color: #22c55e; flex: 1;">Acreditar Tarjeta en Banco</button>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <button onclick="transferirBancoFondo()" class="btn btn-blue" style="flex: 1;">A Fondo</button>
+                    <button onclick="acreditarTarjeta()" class="btn btn-blue" style="background-color: #22c55e; flex: 1;">Acreditar Tarj</button>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <button onclick="exportarPDF()" class="btn" style="background-color: #6366f1; color: white; flex: 2;">📥 Descargar Informe PDF</button>
-                    <button onclick="resetearMes()" class="btn btn-red" style="flex: 1;">⚠️ Resetear Mes</button>
+                    <button onclick="exportarPDF()" class="btn" style="background-color: #6366f1; color: white; flex: 2;">📥 PDF</button>
+                    <button onclick="resetearMes()" class="btn btn-red" style="flex: 1;">⚠️ Reset</button>
                 </div>
             </div>
         </section>
@@ -67,7 +70,7 @@
                 <input type="text" id="c-nom" placeholder="Nombre">
                 <input type="text" id="c-tel" placeholder="Teléfono">
                 <input type="number" id="c-coti" placeholder="Cotización Total $">
-                <input type="number" id="c-heredado" placeholder="Saldo Heredado (Deuda anterior) $">
+                <input type="number" id="c-heredado" placeholder="Deuda anterior $">
                 <button onclick="crearCliente()" class="btn btn-blue">Crear Hoja</button>
             </div>
             <div id="contenedor-clientes"></div>
@@ -75,7 +78,7 @@
 
         <section id="tab-gastos" class="tab-content" style="display:none">
             <div class="seccion-form">
-                <h3>Cargar Retiro de Socio / Gasto Gral</h3>
+                <h3>Cargar Retiro o Gasto Gral</h3>
                 <select id="g-tipo">
                     <option value="Pablo">Retiro Pablo</option>
                     <option value="Fer">Retiro Fer</option>
