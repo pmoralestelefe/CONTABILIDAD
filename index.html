@@ -11,34 +11,15 @@
     <header>
         <div class="header-top">
             <img src="logo.png" alt="Logo PAC" class="logo-empresa" onerror="this.style.display='none'">
-            <h1>Contabilidad Portones Automáticos Córdoba</h1>
-        </div>
-        <div class="mes-selector">
-            <select id="select-mes" onchange="cambiarMes()">
-                <option value="actual">Mes en Curso</option>
-                <option value="anterior">Mes Anterior (Archivo)</option>
-            </select>
-            <button onclick="abrirModalCajaHeredada()" class="btn-mini">Carga Inicial / Saldo Heredado</button>
+            <h1>PAC - Contabilidad Portones</h1>
         </div>
         <nav>
             <button id="btn-tesoreria" class="nav-btn active" onclick="cambiarPestaña('tesoreria')">Tesorería</button>
-            <button id="btn-clientes" class="nav-btn" onclick="cambiarPestaña('clientes')">Clientes</button>
+            <button id="btn-clientes" class="nav-btn" onclick="cambiarPestaña('clientes')">Obras/Clientes</button>
             <button id="btn-gastos" class="nav-btn" onclick="cambiarPestaña('gastos')">Gastos/Retiros</button>
-            <button onclick="exportarPDFContador()" class="btn-pdf">PDF Contador</button>
+            <button onclick="exportarPDFContador()" class="btn-pdf">Reporte PDF</button>
         </nav>
     </header>
-
-    <div id="modal-herencia" class="modal">
-        <div class="modal-content">
-            <h3>Carga Inicial (Mes Anterior)</h3>
-            <input type="number" id="h-efectivo" placeholder="Efectivo heredado $">
-            <input type="number" id="h-banco" placeholder="Banco heredado $">
-            <div class="flex-btns">
-                <button onclick="guardarHerencia()" class="btn btn-blue">Guardar</button>
-                <button onclick="cerrarModales()" class="btn btn-red">Cancelar</button>
-            </div>
-        </div>
-    </div>
 
     <section id="tesoreria" class="tab-content active">
         <div class="stats-grid">
@@ -48,67 +29,79 @@
             <div class="stat-card"><h3>Fondo Común</h3><p id="caja-fondo">$0</p></div>
         </div>
         
-        <div class="card">
-            <h3>Transferir entre Cajas</h3>
+        <div class="card form-panel">
+            <h3>Carga Inicial / Herencia del Mes</h3>
+            <div class="form-row">
+                <input type="number" id="h-efectivo" placeholder="Efectivo inicial $">
+                <input type="number" id="h-banco" placeholder="Banco inicial $">
+                <button onclick="guardarHerencia()" class="btn btn-blue">Cargar Iniciales</button>
+            </div>
+        </div>
+
+        <div class="card form-panel">
+            <h3>Mover entre Cajas</h3>
             <div class="form-row">
                 <input type="number" id="monto-transferir" placeholder="Monto $">
                 <select id="tipo-transferencia">
                     <option value="banco-fondo">Banco a Fondo Común</option>
                     <option value="tarjeta-banco">Acreditar Tarjeta en Banco</option>
                 </select>
-                <button onclick="ejecutarTransferencia()" class="btn btn-blue">Ejecutar</button>
+                <button onclick="ejecutarTransferencia()" class="btn btn-yellow">Transferir</button>
             </div>
         </div>
     </section>
 
     <section id="clientes" class="tab-content">
-        <div class="card">
-            <h3>Nueva Obra / Cliente</h3>
+        <div class="card form-panel">
+            <h3>Registrar Nueva Obra</h3>
             <div class="form-grid">
-                <input type="text" id="cli-nombre" placeholder="Nombre Cliente">
+                <input type="text" id="cli-nombre" placeholder="Nombre del Cliente">
                 <input type="number" id="cli-coti" placeholder="Cotización Total $">
-                <input type="number" id="cli-pago" placeholder="Pago Inicial $">
+                <input type="number" id="cli-pago" placeholder="Entrega Inicial $">
                 <select id="cli-metodo">
-                    <option value="efectivo">Efectivo</option>
-                    <option value="banco">Banco</option>
-                    <option value="tarjeta">Tarjeta</option>
+                    <option value="efectivo">Cobro en Efectivo</option>
+                    <option value="banco">Cobro en Banco</option>
+                    <option value="tarjeta">Cobro con Tarjeta</option>
                 </select>
-                <button onclick="crearCliente()" class="btn btn-blue">Registrar Obra</button>
+                <button onclick="crearCliente()" class="btn btn-blue">Guardar Obra</button>
             </div>
         </div>
         <div id="lista-clientes-container"></div>
     </section>
 
     <section id="gastos" class="tab-content">
-        <div class="card">
-            <h3>Retiros y Gastos Diarios</h3>
-            <div class="form-row">
+        <div class="card form-panel">
+            <h3>Cargar Gasto o Retiro</h3>
+            <div class="form-grid">
                 <select id="gasto-tipo">
                     <option value="Pablo">Retiro Pablo</option>
                     <option value="Fer">Retiro Fer</option>
+                    <option value="Insumo">Gasto Obra / Insumo</option>
                     <option value="Gasto">Gasto Gral (GNC/Publicidad)</option>
                 </select>
-                <input type="text" id="gasto-detalle" placeholder="Detalle">
+                <input type="text" id="gasto-detalle" placeholder="Detalle (ej: Electrodos)">
                 <input type="number" id="gasto-monto" placeholder="Monto $">
                 <select id="gasto-origen">
-                    <option value="fondo">De Fondo Común</option>
-                    <option value="efectivo">De Efectivo</option>
-                    <option value="banco">De Banco</option>
+                    <option value="fondo">Pagar con Fondo Común</option>
+                    <option value="efectivo">Pagar con Efectivo</option>
+                    <option value="banco">Pagar con Banco</option>
                 </select>
-                <button onclick="crearGastoRetiro()" class="btn btn-red">Cargar</button>
+                <button onclick="crearGastoRetiro()" class="btn btn-red">Registrar Movimiento</button>
             </div>
         </div>
         
-        <div class="card">
-            <p>Retiros Pablo: <strong id="ret-pablo">$0</strong> | Fer: <strong id="ret-fer">$0</strong></p>
+        <div class="card stats-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="stat-card" style="border-color: var(--yellow);"><h3>Retiros Pablo</h3><p id="ret-pablo" style="color:var(--yellow)">$0</p></div>
+            <div class="stat-card" style="border-color: var(--yellow);"><h3>Retiros Fer</h3><p id="ret-fer" style="color:var(--yellow)">$0</p></div>
         </div>
 
-        <div class="table-wrapper">
+        <div class="table-wrapper card">
             <table>
-                <thead><tr><th>Fecha</th><th>Detalle</th><th>Monto</th><th>Caja</th></tr></thead>
+                <thead><tr><th>Fecha</th><th>Tipo/Detalle</th><th>Monto</th><th>Origen</th><th></th></tr></thead>
                 <tbody id="body-gastos"></tbody>
             </table>
         </div>
+        <button onclick="borrarTodo()" class="btn-borrar-todo">Cerrar Mes / Borrar Todo</button>
     </section>
 
     <script src="script.js"></script>
