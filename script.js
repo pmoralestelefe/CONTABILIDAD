@@ -1,4 +1,4 @@
-let db = JSON.parse(localStorage.getItem('pac_db_v4')) || {
+let db = JSON.parse(localStorage.getItem('pac_db_final')) || {
     cajas: { efectivo: 0, banco: 0, tarjetas: 0, fondo: 0 },
     clientes: [],
     movimientos: []
@@ -11,73 +11,63 @@ function cambiarPestaña(id) {
     document.getElementById('btn-' + id).classList.add('active');
 }
 
-function guardarHerencia() {
-    const efec = parseFloat(document.getElementById('h-efectivo').value) || 0;
-    const banc = parseFloat(document.getElementById('h-banco').value) || 0;
-    db.cajas.efectivo += efec;
-    db.cajas.banco += banc;
-    guardar();
+function cargarHeredado() {
+    const e = parseFloat(document.getElementById('h-efectivo').value) || 0;
+    const b = parseFloat(document.getElementById('h-banco').value) || 0;
+    db.cajas.efectivo += e;
+    db.cajas.banco += b;
     document.getElementById('h-efectivo').value = '';
     document.getElementById('h-banco').value = '';
+    actualizar();
 }
 
-function crearCliente() {
-    const nombre = document.getElementById('cli-nombre').value;
-    const coti = parseFloat(document.getElementById('cli-coti').value);
-    const pago = parseFloat(document.getElementById('cli-pago').value) || 0;
-    const metodo = document.getElementById('cli-metodo').value;
+function nuevoCliente() {
+    const nombre = prompt("Nombre del Cliente:");
+    const coti = parseFloat(prompt("Total Cotizado ($):"));
+    const pago = parseFloat(prompt("Entrega Inicial ($):") || 0);
+    const metodo = prompt("Método (Efectivo / Banco / Tarjeta):").toLowerCase();
 
     if (nombre && !isNaN(coti)) {
         db.clientes.push({
             id: Date.now(),
-            nombre: nombre,
-            coti: coti,
-            pagos: [{ monto: pago, metodo: metodo, fecha: new Date().toLocaleDateString() }]
+            nombre, coti,
+            pagos: [{ monto: pago, metodo, fecha: new Date().toLocaleDateString() }]
         });
-        afectarCaja(metodo, pago, 'sumar');
-        guardar();
-        document.getElementById('cli-nombre').value = '';
-        document.getElementById('cli-coti').value = '';
-        document.getElementById('cli-pago').value = '';
+        modificarCaja(metodo, pago, 'sumar');
+        actualizar();
     }
 }
 
-function registrarNuevoPago(id) {
-    const monto = parseFloat(prompt("Monto recibido:"));
-    const metodo = prompt("Método (Efectivo/Banco/Tarjeta):").toLowerCase();
+function agregarPago(id) {
+    const monto = parseFloat(prompt("Monto del nuevo pago:"));
+    const metodo = prompt("Método (Efectivo / Banco / Tarjeta):").toLowerCase();
     if (!isNaN(monto)) {
         const cli = db.clientes.find(c => c.id === id);
-        cli.pagos.push({ monto: monto, metodo: metodo, fecha: new Date().toLocaleDateString() });
-        afectarCaja(metodo, monto, 'sumar');
-        guardar();
+        cli.pagos.push({ monto, metodo, fecha: new Date().toLocaleDateString() });
+        modificarCaja(metodo, monto, 'sumar');
+        actualizar();
     }
 }
 
-function crearGastoRetiro() {
-    const tipo = document.getElementById('gasto-tipo').value;
-    const det = document.getElementById('gasto-detalle').value;
-    const monto = parseFloat(document.getElementById('gasto-monto').value);
-    const origen = document.getElementById('gasto-origen').value;
+function nuevoGasto() {
+    const tipo = prompt("¿Es Retiro Pablo, Retiro Fer o Gasto?");
+    const monto = parseFloat(prompt("Monto ($):"));
+    const origen = prompt("¿De dónde sale? (Fondo / Efectivo / Banco)").toLowerCase();
 
-    if (!isNaN(monto) && det) {
-        db.movimientos.push({ tipo, det, monto, origen, fecha: new Date().toLocaleDateString() });
-        afectarCaja(origen, monto, 'restar');
-        guardar();
-        document.getElementById('gasto-detalle').value = '';
-        document.getElementById('gasto-monto').value = '';
+    if (!isNaN(monto)) {
+        db.movimientos.push({ tipo, monto, origen, fecha: new Date().toLocaleDateString() });
+        modificarCaja(origen, monto, 'restar');
+        actualizar();
     }
 }
 
-function afectarCaja(caja, monto, op) {
-    let k = 'efectivo';
-    if (caja.includes('ban')) k = 'banco';
-    if (caja.includes('tar')) k = 'tarjetas';
-    if (caja.includes('fon')) k = 'fondo';
+function modificarCaja(caja, monto, op) {
+    let k = caja.includes('efe') ? 'efectivo' : caja.includes('ban') ? 'banco' : caja.includes('tar') ? 'tarjetas' : 'fondo';
     if (op === 'sumar') db.cajas[k] += monto; else db.cajas[k] -= monto;
 }
 
-function guardar() {
-    localStorage.setItem('pac_db_v4', JSON.stringify(db));
+function actualizar() {
+    localStorage.setItem('pac_db_final', JSON.stringify(db));
     render();
 }
 
@@ -87,18 +77,18 @@ function render() {
     document.getElementById('caja-tarjetas').innerText = `$${Math.round(db.cajas.tarjetas).toLocaleString()}`;
     document.getElementById('caja-fondo').innerText = `$${Math.round(db.cajas.fondo).toLocaleString()}`;
 
-    const contCli = document.getElementById('lista-clientes-container');
-    contCli.innerHTML = db.clientes.map(c => {
-        const pagado = c.pagos.reduce((acc, p) => acc + p.monto, 0);
-        const debe = c.coti - pagado;
+    const cont = document.getElementById('lista-clientes-container');
+    cont.innerHTML = db.clientes.map(c => {
+        const totalPagado = c.pagos.reduce((acc, p) => acc + p.monto, 0);
+        const deuda = c.coti - totalPagado;
         return `
             <div class="cliente-item">
                 <div class="cliente-header" onclick="toggleDetalle(this)">
                     <strong>${c.nombre}</strong>
-                    <span style="color:${debe > 0 ? 'orange' : '#22c55e'}">${debe > 0 ? 'Debe: $' + debe.toLocaleString() : 'PAGADO'}</span>
+                    <span style="color:${deuda > 0 ? 'orange' : '#22c55e'}">${deuda > 0 ? 'Debe: $' + deuda.toLocaleString() : 'PAGADO'}</span>
                 </div>
                 <div class="cliente-detalle">
-                    <button class="btn btn-blue" onclick="registrarNuevoPago(${c.id})">+ Cargar Pago</button>
+                    <button class="btn btn-blue" onclick="agregarPago(${c.id})">+ Cargar Pago</button>
                     <div style="font-size:11px; margin-top:10px">
                         ${c.pagos.map(p => `${p.fecha}: $${p.monto} (${p.metodo})`).join('<br>')}
                     </div>
@@ -106,14 +96,10 @@ function render() {
             </div>`;
     }).join('');
 
-    const retP = db.movimientos.filter(m => m.tipo === 'Pablo').reduce((acc, m) => acc + m.monto, 0);
-    const retF = db.movimientos.filter(m => m.tipo === 'Fer').reduce((acc, m) => acc + m.monto, 0);
+    const retP = db.movimientos.filter(m => m.tipo.toLowerCase().includes('pablo')).reduce((acc, m) => acc + m.monto, 0);
+    const retF = db.movimientos.filter(m => m.tipo.toLowerCase().includes('fer')).reduce((acc, m) => acc + m.monto, 0);
     document.getElementById('ret-pablo').innerText = `$${retP.toLocaleString()}`;
     document.getElementById('ret-fer').innerText = `$${retF.toLocaleString()}`;
-
-    document.getElementById('body-gastos').innerHTML = db.movimientos.map(m => `
-        <tr><td>${m.fecha}</td><td>${m.tipo}: ${m.det}</td><td style="color:#ef4444">-$${m.monto}</td></tr>
-    `).reverse().join('');
 }
 
 function toggleDetalle(el) {
