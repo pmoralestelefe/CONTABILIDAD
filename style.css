@@ -1,0 +1,73 @@
+:root {
+    --bg: #020617;
+    --card: #0f172a;
+    --text: #f1f5f9;
+    --accent: #3b82f6;
+    --green: #22c55e;
+    --red: #ef4444;
+    --border: #1e293b;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding-bottom: 50px;
+}
+
+header {
+    background: #020617;
+    padding: 20px;
+    text-align: center;
+    border-bottom: 2px solid var(--accent);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    padding: 20px;
+}
+
+.stat-card {
+    background: var(--card);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    text-align: center;
+}
+
+.stat-card h3 { font-size: 12px; color: #94a3b8; text-transform: uppercase; margin: 0; }
+.stat-card p { font-size: 24px; font-weight: bold; margin-top: 10px; }
+
+.container { padding: 0 20px; display: grid; gap: 20px; }
+
+.card {
+    background: var(--card);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.table-wrapper { overflow-x: auto; margin-top: 15px; }
+
+table { width: 100%; border-collapse: collapse; min-width: 500px; }
+th { text-align: left; padding: 12px; border-bottom: 2px solid var(--border); color: #94a3b8; }
+td { padding: 12px; border-bottom: 1px solid var(--border); }
+
+.positivo { color: var(--green); }
+.negativo { color: var(--red); }
+.destaque { color: var(--accent); }
+
+.btn {
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 15px;
+}
+
+.btn-blue { background: var(--accent); color: white; }
+.btn-red { background: var(--red); color: white; }
