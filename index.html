@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PAC Contabilidad</title>
+    <title>PAC Portones</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <div class="header-top">
             <img src="logo.png" alt="Logo" class="logo-empresa" onerror="this.style.display='none'">
-            <h1>Contabilidad Portones Córdoba</h1>
+            <h1>PAC Contabilidad Córdoba</h1>
         </div>
         <nav>
             <button id="btn-tesoreria" class="nav-btn active" onclick="cambiarPestaña('tesoreria')">Cajas</button>
@@ -27,54 +27,29 @@
             <div class="stat-card"><h3>Fondo</h3><p id="caja-fondo">$0</p></div>
         </div>
         <div class="card">
-            <h3>Carga Inicial Mes</h3>
-            <input type="number" id="h-efectivo" placeholder="Efectivo inicial $">
-            <input type="number" id="h-banco" placeholder="Banco inicial $">
-            <button onclick="guardarHerencia()" class="btn btn-blue">Cargar Saldos</button>
+            <h3>Cargar Saldo Inicial (Heredado)</h3>
+            <input type="number" id="h-efectivo" placeholder="Efectivo $">
+            <input type="number" id="h-banco" placeholder="Banco $">
+            <button onclick="cargarHeredado()" class="btn btn-blue">Sumar al Mes</button>
         </div>
     </section>
 
     <section id="clientes" class="tab-content">
         <div class="card">
-            <h3>Nueva Obra</h3>
-            <input type="text" id="cli-nombre" placeholder="Nombre Cliente">
-            <input type="number" id="cli-coti" placeholder="Cotización Total $">
-            <input type="number" id="cli-pago" placeholder="Entrega Inicial $">
-            <select id="cli-metodo">
-                <option value="efectivo">Efectivo</option>
-                <option value="banco">Banco</option>
-                <option value="tarjeta">Tarjeta</option>
-            </select>
-            <button onclick="crearCliente()" class="btn btn-blue">Registrar Obra</button>
+            <button onclick="nuevoCliente()" class="btn btn-blue">+ Registrar Obra</button>
         </div>
         <div id="lista-clientes-container"></div>
     </section>
 
     <section id="gastos" class="tab-content">
         <div class="card">
-            <h3>Retiro / Gasto</h3>
-            <select id="gasto-tipo">
-                <option value="Pablo">Retiro Pablo</option>
-                <option value="Fer">Retiro Fer</option>
-                <option value="Gasto">Gasto General</option>
-            </select>
-            <input type="text" id="gasto-detalle" placeholder="Detalle">
-            <input type="number" id="gasto-monto" placeholder="Monto $">
-            <select id="gasto-origen">
-                <option value="efectivo">Desde Efectivo</option>
-                <option value="banco">Desde Banco</option>
-                <option value="fondo">Desde Fondo</option>
-            </select>
-            <button onclick="crearGastoRetiro()" class="btn btn-red">Cargar Gasto</button>
+            <button onclick="nuevoGasto()" class="btn btn-red">+ Cargar Gasto/Retiro</button>
         </div>
         <div class="card">
-            <p>Retiros: Pablo: <span id="ret-pablo">$0</span> | Fer: <span id="ret-fer">$0</span></p>
+            <p>Retiros Pablo: <strong id="ret-pablo">$0</strong></p>
+            <p>Retiros Fer: <strong id="ret-fer">$0</strong></p>
         </div>
-        <div class="card">
-            <table>
-                <tbody id="body-gastos"></tbody>
-            </table>
-        </div>
+        <div id="tabla-movimientos" style="padding: 15px;"></div>
     </section>
 
     <script src="script.js"></script>
