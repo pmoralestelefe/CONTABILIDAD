@@ -1,10 +1,3 @@
-/* RESET TOTAL PARA EVITAR COLORES BLANCOS */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
 :root {
     --bg: #020617; 
     --card: #0f172a; 
@@ -17,46 +10,45 @@
 }
 
 body {
-    font-family: 'Segoe UI', sans-serif;
-    background-color: var(--bg) !important;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--bg);
     color: var(--text);
+    margin: 0;
     padding-top: 140px;
 }
 
-/* HEADER Y LOGO */
 header {
-    background: var(--bg);
+    background: #020617;
+    padding: 15px 20px;
     border-bottom: 2px solid var(--accent);
     position: fixed;
     top: 0;
     width: 100%;
-    padding: 15px;
     z-index: 1000;
 }
 
 .header-top {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 15px;
 }
 
 .logo-empresa {
-    height: 40px !important; /* Logo chico como antes */
+    height: 40px !important;
     width: auto;
 }
 
 header h1 {
-    font-size: 14px;
+    font-size: 16px;
     text-transform: uppercase;
     color: white;
+    margin: 0;
 }
 
-/* NAVEGACIÓN */
 nav {
     display: flex;
     gap: 8px;
     margin-top: 10px;
-    overflow-x: auto;
 }
 
 .nav-btn {
@@ -67,7 +59,6 @@ nav {
     border-radius: 6px;
     cursor: pointer;
     font-weight: bold;
-    white-space: nowrap;
 }
 
 .nav-btn.active {
@@ -75,40 +66,39 @@ nav {
     color: white;
 }
 
-/* FORMULARIOS OSCUROS */
 .card {
-    background: var(--card) !important;
-    padding: 15px;
-    border-radius: 10px;
+    background: var(--card);
+    padding: 20px;
+    border-radius: 12px;
     border: 1px solid var(--border);
     margin: 15px;
 }
 
+/* INPUTS OSCUROS */
 input, select {
-    background: #1e293b !important;
-    border: 1px solid var(--border) !important;
-    color: white !important;
+    background: #1e293b;
+    border: 1px solid var(--border);
+    color: white;
     padding: 10px;
     border-radius: 6px;
-    margin: 5px 0;
-    width: 100%; /* Para que en el celu se vea bien */
+    width: 100%;
+    margin-bottom: 10px;
 }
 
-/* TABLAS Y LISTAS */
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    padding: 15px;
+    gap: 15px;
+    padding: 0 15px;
 }
 
 .stat-card {
     background: var(--card);
     padding: 15px;
-    border-radius: 10px;
+    border-radius: 12px;
     text-align: center;
     border: 1px solid var(--border);
 }
@@ -120,39 +110,34 @@ input, select {
 }
 
 .cliente-item {
-    background: #111d31;
     border: 1px solid var(--border);
     margin: 10px 15px;
     border-radius: 8px;
+    background: #111d31;
 }
 
 .cliente-header {
     padding: 12px;
+    cursor: pointer;
     display: flex;
     justify-content: space-between;
-    cursor: pointer;
 }
 
 .cliente-detalle {
     padding: 15px;
     display: none;
-    background: var(--bg);
+    background: #0f172a;
     border-top: 1px solid var(--border);
 }
 
 .btn {
-    padding: 12px;
-    border-radius: 6px;
+    padding: 10px 15px;
+    border-radius: 8px;
     border: none;
     cursor: pointer;
     font-weight: bold;
     width: 100%;
-    margin-top: 5px;
 }
 
 .btn-blue { background: var(--accent); color: white; }
-.btn-yellow { background: var(--yellow); color: black; }
 .btn-red { background: var(--red); color: white; }
-
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
