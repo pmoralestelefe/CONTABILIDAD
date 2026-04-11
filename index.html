@@ -3,82 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PAC - Administración Contable</title>
-    <style>
-        :root { --bg: #020617; --card: #0f172a; --accent: #3b82f6; --green: #22c55e; --red: #ef4444; --text: #f1f5f9; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; }
-        
-        /* Dashboard de totales */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; padding: 20px; }
-        .stat-card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid #1e293b; text-align: center; }
-        .stat-card h3 { font-size: 12px; color: #94a3b8; margin: 0; text-transform: uppercase; }
-        .stat-card p { font-size: 20px; font-weight: bold; margin: 10px 0 0; }
-        
-        .container { padding: 0 20px; }
-        .flex-tables { display: flex; flex-wrap: wrap; gap: 20px; }
-        .table-container { flex: 1; min-width: 350px; background: var(--card); padding: 15px; border-radius: 12px; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-        th { text-align: left; color: #94a3b8; padding: 10px; border-bottom: 1px solid #1e293b; }
-        td { padding: 10px; border-bottom: 1px solid #0f172a; }
-        
-        .btn { padding: 8px 15px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; }
-        .btn-add { background: var(--accent); color: #white; width: 100%; margin-top: 10px; }
-        
-        input { background: #020617; border: 1px solid #334155; color: white; padding: 8px; border-radius: 4px; width: 80%; }
-    </style>
+    <title>Contabilidad PAC - Portones Automáticos Córdoba</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
+    
+    <header>
+        <div class="header-top">
+            <img src="logo.png" alt="Logo PAC" class="logo-empresa">
+            <h1>Contabilidad Portones Automáticos Córdoba</h1>
+        </div>
+        <nav>
+            <button id="btn-tesoreria" class="nav-btn active" onclick="cambiarPestaña('tesoreria')">Tesorería</button>
+            <button id="btn-clientes" class="nav-btn" onclick="cambiarPestaña('clientes')">Clientes/Obras</button>
+            <button id="btn-gastos" class="nav-btn" onclick="cambiarPestaña('gastos')">Gastos Grales</button>
+            <button onclick="exportarPDFContador()" class="btn-pdf">Generar PDF Contador</button>
+        </nav>
+    </header>
 
-<div class="stats-grid">
-    <div class="stat-card"><h3>Fondo Común</h3><p id="total-fondo" style="color:var(--green)">$0</p></div>
-    <div class="stat-card"><h3>Banco / P.Pay</h3><p id="total-banco">$0</p></div>
-    <div class="stat-card"><h3>Gastos Mes</h3><p id="total-gastos" style="color:var(--red)">$0</p></div>
-    <div class="stat-card"><h3>Ganancia c/u</h3><p id="ganancia-individual" style="color:var(--accent)">$0</p></div>
-</div>
+    <section id="tesoreria" class="tab-content active">
+        <div class="stats-grid">
+            <div class="stat-card"><h3>Efectivo</h3><p id="caja-efectivo">$0</p></div>
+            <div class="stat-card"><h3>Banco</h3><p id="caja-banco">$0</p></div>
+            <div class="stat-card"><h3>Tarjetas (A liquidar)</h3><p id="caja-tarjetas">$0</p></div>
+            <div class="stat-card"><h3>Fondo Común</h3><p id="caja-fondo">$0</p></div>
+        </div>
+        
+        <div class="card">
+            <h3>Movimientos de Caja</h3>
+            <div class="flex-btns">
+                <button onclick="moverBancoAFondo()" class="btn btn-blue">Mover Banco a Fondo</button>
+                <button onclick="acreditarTarjeta()" class="btn btn-yellow">Acreditar Tarjeta en Banco</button>
+            </div>
+        </div>
+    </section>
 
-<div class="container">
-    <div class="flex-tables">
-        <div class="table-container">
-            <h3>📂 Obras e Ingresos</h3>
-            <table id="tabla-obras">
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>Cotizado</th>
-                        <th>Gastos</th>
-                        <th>Ganancia</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    </tbody>
-            </table>
-            <button class="btn btn-add">+ Nueva Obra</button>
+    <section id="clientes" class="tab-content">
+        <div class="card">
+            <div class="flex-header">
+                <h2>Gestión de Clientes y Obras</h2>
+                <button onclick="nuevoCliente()" class="btn btn-blue">+ Nuevo Cliente</button>
+            </div>
+            <div id="lista-clientes-container">
+                </div>
+        </div>
+    </section>
+
+    <section id="gastos" class="tab-content">
+        <div class="card">
+            <h3>Retiros de Socios</h3>
+            <div class="flex-btns">
+                <button onclick="registrarRetiro('Pablo')" class="btn btn-yellow">Retiro Pablo</button>
+                <button onclick="registrarRetiro('Fer')" class="btn btn-yellow">Retiro Fer</button>
+            </div>
+            <div class="info-block">
+                <p>Retiro Acumulado Pablo: <strong id="ret-pablo" class="positivo">$0</strong></p>
+                <p>Retiro Acumulado Fer: <strong id="ret-fer" class="positivo">$0</strong></p>
+            </div>
         </div>
 
-        <div class="table-container">
-            <h3>💸 Gastos Operativos (Caja)</h3>
-            <table id="tabla-gastos">
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Concepto</th>
-                        <th>Monto</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    </tbody>
-            </table>
-            <button class="btn btn-add">+ Registrar Gasto</button>
+        <div class="card">
+            <h3>Gastos Operativos (GNC, Publicidad, etc.)</h3>
+            <button onclick="nuevoGastoGral()" class="btn btn-red">+ Registrar Gasto</button>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr><th>Fecha</th><th>Detalle</th><th>Monto</th><th></th></tr>
+                    </thead>
+                    <tbody id="body-gastos-grales"></tbody>
+                </table>
+            </div>
         </div>
-    </div>
-</div>
+        
+        <button onclick="borrarTodo()" class="btn-borrar-todo">Borrar Todos los Datos / Cerrar Mes</button>
+    </section>
 
-<script>
-    // Aquí irá la lógica de cálculo automático
-    // Ganancia = Cotizado - Gastos Directos
-    // Ganancia Individual = (Suma Ganancias Obras - Gastos Operativos) / 2
-</script>
-
+    <script src="script.js"></script>
 </body>
 </html>
