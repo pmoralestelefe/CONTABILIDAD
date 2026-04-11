@@ -1,33 +1,56 @@
 :root {
-    --bg: #020617; --card: #0f172a; --accent: #3b82f6;
-    --text: #f1f5f9; --border: #1e293b; --green: #22c55e; --red: #ef4444; --yellow: #fbbf24;
+    --bg: #0f172a; --card: #1e293b; --text: #f8fafc;
+    --blue: #3b82f6; --red: #ef4444; --yellow: #f59e0b;
 }
-body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-top: 150px; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { 
+    margin: 0; font-family: sans-serif; background: var(--bg); color: var(--text); 
+    padding-top: 110px; /* Espacio para el header fijo */
+}
+header { 
+    position: fixed; top: 0; width: 100%; background: var(--card); z-index: 100;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+.header-top { display: flex; align-items: center; padding: 10px; gap: 15px; }
+.logo-empresa { height: 40px; }
+h1 { font-size: 16px; margin: 0; flex-grow: 1; }
+nav { display: flex; border-top: 1px solid #334155; }
+.nav-btn { 
+    flex: 1; padding: 12px; border: none; background: none; color: #94a3b8; 
+    font-weight: bold; cursor: pointer; font-size: 13px;
+}
+.nav-btn.active { color: var(--blue); border-bottom: 3px solid var(--blue); }
 
-header { background: var(--bg); padding: 15px; border-bottom: 2px solid var(--accent); position: fixed; top: 0; width: 100%; z-index: 1000; }
+.container { padding: 15px; max-width: 800px; margin: auto; }
+.grid-totales { 
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; 
+}
+.card-total { 
+    background: var(--card); padding: 10px; border-radius: 8px; text-align: center;
+}
+.card-total h3 { font-size: 11px; margin: 0; color: #94a3b8; }
+.card-total p { font-size: 16px; font-weight: bold; margin: 5px 0 0; }
 
-.header-top { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
-.logo-empresa { height: 50px; width: auto; }
-header h1 { font-size: 1.2rem; margin: 0; color: white; font-weight: bold; }
-
-nav { display: flex; gap: 10px; }
-.nav-btn { background: var(--card); color: white; border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; cursor: pointer; }
-.nav-btn.active { background: var(--accent); }
-
-.container { padding: 15px; }
-.grid-totales { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
-.card-total { background: var(--card); padding: 10px; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
-.card-total h3 { font-size: 11px; color: #94a3b8; margin: 0; }
-.card-total p { font-size: 1.1rem; font-weight: bold; margin: 5px 0; color: var(--green); }
-
-.seccion-form { background: var(--card); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 15px; }
-input, select { background: #1e293b; border: 1px solid var(--border); color: white; padding: 8px; border-radius: 6px; width: 100%; margin-bottom: 8px; font-size: 14px; }
-
-.btn { padding: 10px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; width: 100%; }
-.btn-blue { background: var(--accent); color: white; }
+.seccion-form { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+.seccion-form h3 { margin-top: 0; font-size: 14px; }
+input, select { 
+    width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; 
+    border: 1px solid #334155; background: #0f172a; color: white;
+}
+.btn { 
+    padding: 10px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; 
+}
+.btn-blue { background: var(--blue); color: white; width: 100%; }
 .btn-red { background: var(--red); color: white; }
 
-.hoja-cliente { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 15px; padding: 12px; }
-.tabla-interna { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
-.tabla-interna th { text-align: left; color: #94a3b8; padding: 5px; border-bottom: 1px solid var(--border); }
-.tabla-interna td { padding: 5px; border-bottom: 1px solid #1e293b; }
+.hoja-cliente { 
+    background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; 
+    border-left: 5px solid var(--blue);
+}
+.hoja-cliente h3 { margin: 0; font-size: 18px; }
+
+/* AJUSTES CELULAR */
+@media (max-width: 500px) {
+    .grid-totales { grid-template-columns: 1fr 1fr; }
+    h1 { font-size: 14px; }
+}
