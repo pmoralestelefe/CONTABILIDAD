@@ -5,69 +5,147 @@
     --accent: #3b82f6;
     --green: #22c55e;
     --red: #ef4444;
+    --yellow: #fbbf24;
     --border: #1e293b;
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', system-ui, sans-serif;
     background-color: var(--bg);
     color: var(--text);
     margin: 0;
-    padding-bottom: 50px;
+    padding-top: 140px; /* Espacio para el header fijo */
 }
 
+/* HEADER FIJO */
 header {
     background: #020617;
-    padding: 20px;
-    text-align: center;
+    padding: 15px 20px;
     border-bottom: 2px solid var(--accent);
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 1000;
+    box-sizing: border-box;
 }
+
+.header-top {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.logo-empresa {
+    height: 45px;
+    width: auto;
+}
+
+header h1 {
+    font-size: 16px;
+    margin: 0;
+    text-transform: uppercase;
+    color: white;
+}
+
+nav {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+}
+
+.nav-btn {
+    background: var(--card);
+    color: #94a3b8;
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.nav-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.btn-pdf {
+    background: #475569;
+    color: white;
+    margin-left: auto;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+/* CONTENIDO */
+.tab-content { display: none; padding: 20px; }
+.tab-content.active { display: block; }
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 15px;
-    padding: 20px;
+    margin-bottom: 20px;
 }
 
 .stat-card {
     background: var(--card);
-    padding: 20px;
+    padding: 15px;
     border-radius: 12px;
-    border: 1px solid var(--border);
     text-align: center;
+    border: 1px solid var(--border);
 }
 
-.stat-card h3 { font-size: 12px; color: #94a3b8; text-transform: uppercase; margin: 0; }
-.stat-card p { font-size: 24px; font-weight: bold; margin-top: 10px; }
-
-.container { padding: 0 20px; display: grid; gap: 20px; }
+.stat-card h3 { font-size: 11px; color: #94a3b8; text-transform: uppercase; margin: 0; }
+.stat-card p { font-size: 1.2rem; font-weight: bold; color: var(--green); margin-top: 5px; }
 
 .card {
     background: var(--card);
     padding: 20px;
     border-radius: 12px;
     border: 1px solid var(--border);
+    margin-bottom: 15px;
 }
 
-.table-wrapper { overflow-x: auto; margin-top: 15px; }
+.flex-header { display: flex; justify-content: space-between; align-items: center; }
+.flex-btns { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 
-table { width: 100%; border-collapse: collapse; min-width: 500px; }
-th { text-align: left; padding: 12px; border-bottom: 2px solid var(--border); color: #94a3b8; }
-td { padding: 12px; border-bottom: 1px solid var(--border); }
-
-.positivo { color: var(--green); }
-.negativo { color: var(--red); }
-.destaque { color: var(--accent); }
-
-.btn {
-    padding: 12px 20px;
+/* CLIENTES */
+.cliente-item {
+    border: 1px solid var(--border);
+    margin-top: 10px;
     border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    margin-top: 15px;
+    background: #111d31;
 }
 
+.cliente-header {
+    padding: 12px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+}
+
+.cliente-detalle {
+    padding: 15px;
+    display: none;
+    border-top: 1px solid var(--border);
+    background: var(--card);
+}
+
+.info-block { background: #1e293b; padding: 10px; border-radius: 8px; margin-top: 10px; }
+
+/* BOTONES */
+.btn { padding: 10px 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
 .btn-blue { background: var(--accent); color: white; }
 .btn-red { background: var(--red); color: white; }
+.btn-yellow { background: var(--yellow); color: #000; }
+.btn-borrar-todo { background: transparent; color: #444; border: 1px solid #444; width: 100%; padding: 10px; margin-top: 20px; cursor: pointer; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid #1e293b; font-size: 13px; }
+th { color: #94a3b8; }
