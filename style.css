@@ -1,143 +1,33 @@
 :root {
-    --bg: #020617; 
-    --card: #0f172a; 
-    --text: #f1f5f9; 
-    --accent: #3b82f6;
-    --green: #22c55e; 
-    --red: #ef4444; 
-    --yellow: #fbbf24; 
-    --border: #1e293b;
+    --bg: #020617; --card: #0f172a; --accent: #3b82f6;
+    --text: #f1f5f9; --border: #1e293b; --green: #22c55e; --red: #ef4444; --yellow: #fbbf24;
 }
+body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-top: 150px; }
 
-body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background-color: var(--bg);
-    color: var(--text);
-    margin: 0;
-    padding-top: 140px;
-}
+header { background: var(--bg); padding: 15px; border-bottom: 2px solid var(--accent); position: fixed; top: 0; width: 100%; z-index: 1000; }
 
-header {
-    background: #020617;
-    padding: 15px 20px;
-    border-bottom: 2px solid var(--accent);
-    position: fixed;
-    top: 0;
-    width: 100%;
-    z-index: 1000;
-}
+.header-top { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
+.logo-empresa { height: 50px; width: auto; }
+header h1 { font-size: 1.2rem; margin: 0; color: white; font-weight: bold; }
 
-.header-top {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
+nav { display: flex; gap: 10px; }
+.nav-btn { background: var(--card); color: white; border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.nav-btn.active { background: var(--accent); }
 
-.logo-empresa {
-    height: 40px !important;
-    width: auto;
-}
+.container { padding: 15px; }
+.grid-totales { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
+.card-total { background: var(--card); padding: 10px; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
+.card-total h3 { font-size: 11px; color: #94a3b8; margin: 0; }
+.card-total p { font-size: 1.1rem; font-weight: bold; margin: 5px 0; color: var(--green); }
 
-header h1 {
-    font-size: 16px;
-    text-transform: uppercase;
-    color: white;
-    margin: 0;
-}
+.seccion-form { background: var(--card); padding: 15px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 15px; }
+input, select { background: #1e293b; border: 1px solid var(--border); color: white; padding: 8px; border-radius: 6px; width: 100%; margin-bottom: 8px; font-size: 14px; }
 
-nav {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.nav-btn {
-    background: var(--card);
-    color: #94a3b8;
-    border: 1px solid var(--border);
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-.nav-btn.active {
-    background: var(--accent);
-    color: white;
-}
-
-.card {
-    background: var(--card);
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    margin: 15px;
-}
-
-/* INPUTS OSCUROS */
-input, select {
-    background: #1e293b;
-    border: 1px solid var(--border);
-    color: white;
-    padding: 10px;
-    border-radius: 6px;
-    width: 100%;
-    margin-bottom: 10px;
-}
-
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-    padding: 0 15px;
-}
-
-.stat-card {
-    background: var(--card);
-    padding: 15px;
-    border-radius: 12px;
-    text-align: center;
-    border: 1px solid var(--border);
-}
-
-.stat-card p {
-    font-size: 1.2rem;
-    font-weight: bold;
-    color: var(--green);
-}
-
-.cliente-item {
-    border: 1px solid var(--border);
-    margin: 10px 15px;
-    border-radius: 8px;
-    background: #111d31;
-}
-
-.cliente-header {
-    padding: 12px;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-}
-
-.cliente-detalle {
-    padding: 15px;
-    display: none;
-    background: #0f172a;
-    border-top: 1px solid var(--border);
-}
-
-.btn {
-    padding: 10px 15px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    width: 100%;
-}
-
+.btn { padding: 10px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; width: 100%; }
 .btn-blue { background: var(--accent); color: white; }
 .btn-red { background: var(--red); color: white; }
+
+.hoja-cliente { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 15px; padding: 12px; }
+.tabla-interna { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+.tabla-interna th { text-align: left; color: #94a3b8; padding: 5px; border-bottom: 1px solid var(--border); }
+.tabla-interna td { padding: 5px; border-bottom: 1px solid #1e293b; }
