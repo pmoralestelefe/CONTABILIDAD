@@ -144,8 +144,8 @@ function exportarPDF() {
         return `
             <div style="margin-top: 20px; border: 1px solid #000; padding: 10px;">
                 <h3 style="margin-top:0;">Cliente: ${c.nom} ${c.terminado ? '(TERMINADO)' : '(EN CURSO)'}</h3>
-                <p>Cotización Mes: $${c.coti.toLocaleString()} | Deuda Anterior: $${c.deudaHeredada.toLocaleString()}</p>
-                <p>Total Pagado: $${pagado.toLocaleString()} | <strong>Saldo Pendiente: $${deudaTotal.toLocaleString()}</strong></p>
+                <p>Coti: $${c.coti.toLocaleString()} | Deuda Ant: $${c.deudaHeredada.toLocaleString()}</p>
+                <p>Pagado: $${pagado.toLocaleString()} | <strong>Debe: $${deudaTotal.toLocaleString()}</strong></p>
                 <table style="width:100%; border-collapse: collapse; font-size: 10px; margin-top:10px;">
                     <tr style="background:#ddd; border: 1px solid #000;"><th>Fecha</th><th>Concepto</th><th>Costo</th></tr>
                     ${c.materiales.map(m => `<tr><td style="border: 1px solid #000; padding:3px;">${m.fecha}</td><td style="border: 1px solid #000; padding:3px;">${m.det}</td><td style="border: 1px solid #000; padding:3px;">$${m.costo.toLocaleString()}</td></tr>`).join('')}
@@ -154,21 +154,18 @@ function exportarPDF() {
     }).join('');
 
     elemento.innerHTML = `
-        <h1 style="text-align:center;">Informe PAC Contabilidad</h1>
-        <h2 style="text-align:center; color: #666;">Período: ${db.periodo}</h2>
-        <p style="text-align:right;">Fecha: ${new Date().toLocaleDateString()}</p>
-        <div style="border: 2px solid #000; padding: 15px; margin-bottom: 20px; background-color: #f9f9f9;">
-            <h3 style="margin-top:0;">ESTADO DE CAJAS</h3>
-            <p><strong>Banco:</strong> $${db.cajas.banco.toLocaleString()} | <strong>Efectivo:</strong> $${db.cajas.efectivo.toLocaleString()}</p>
-            <p><strong>Tarjetas:</strong> $${db.cajas.tarjetas.toLocaleString()} | <strong>Fondo Común:</strong> $${db.cajas.fondo.toLocaleString()}</p>
-            <hr style="border: 0; border-top: 1px solid #000;">
-            <h3 style="margin-top:10px;">RETIROS DEL MES</h3>
-            <p><strong>Retiro Pablo:</strong> $${db.retiros.pablo.toLocaleString()} | <strong>Retiro Fer:</strong> $${db.retiros.fer.toLocaleString()}</p>
+        <h1 style="text-align:center;">MEGAFILM PAC</h1>
+        <h2 style="text-align:center;">Período: ${db.periodo}</h2>
+        <div style="border: 2px solid #000; padding: 10px; margin-bottom: 20px;">
+            <p><strong>Banco:</strong> $${db.cajas.banco.toLocaleString()} | <strong>Efe:</strong> $${db.cajas.efectivo.toLocaleString()}</p>
+            <p><strong>Tarj:</strong> $${db.cajas.tarjetas.toLocaleString()} | <strong>Fondo:</strong> $${db.cajas.fondo.toLocaleString()}</p>
+            <hr>
+            <p><strong>Pablo:</strong> $${db.retiros.pablo.toLocaleString()} | <strong>Fer:</strong> $${db.retiros.fer.toLocaleString()}</p>
         </div>
         ${htmlClientes}
     `;
 
-    const opt = { margin: 10, filename: `PAC-Reporte-${db.periodo}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+    const opt = { margin: 10, filename: `Reporte-${db.periodo}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
     html2pdf().set(opt).from(elemento).save();
 }
 
@@ -189,41 +186,32 @@ function render() {
     cont.innerHTML = db.clientes.map(c => {
         const totalPagado = c.pagos.reduce((a, b) => a + b.monto, 0);
         const deudaTotal = (c.coti + c.deudaHeredada) - totalPagado;
-        
-        // Generar lista de materiales visibles en la app
-        const listaMateriales = c.materiales.map(m => 
-            `<li style="font-size: 11px;">${m.fecha} - ${m.det}: $${m.costo.toLocaleString()}</li>`
-        ).join('');
+        const listaMat = c.materiales.map(m => `<li style="font-size: 11px;">${m.det}: $${m.costo.toLocaleString()}</li>`).join('');
 
         return `
             <div class="hoja-cliente" style="${c.terminado ? 'opacity: 0.7; border-left: 10px solid #22c55e;' : ''}">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2>${c.nom} <small>(${c.tel})</small></h2>
-                    <label style="font-weight: bold; color: ${c.terminado ? '#22c55e' : '#94a3b8'}; cursor: pointer;">
+                    <h3>${c.nom}</h3>
+                    <label style="font-weight: bold; font-size: 14px; color: ${c.terminado ? '#22c55e' : '#ef4444'};">
                         Terminado: <input type="checkbox" ${c.terminado ? 'checked' : ''} onchange="toggleTerminado(${c.id})"> 
                         ${c.terminado ? 'SÍ' : 'NO'}
                     </label>
                 </div>
-                <p>Coti: $${c.coti.toLocaleString()} | Deuda Ant: $${c.deudaHeredada.toLocaleString()} | <strong>Debe: $${deudaTotal.toLocaleString()}</strong></p>
-                
-                <div style="margin-bottom: 10px;">
-                    <h4 style="margin: 5px 0;">Gastos Registrados:</h4>
-                    <ul style="margin: 0; padding-left: 20px;">${listaMateriales || '<li style="color: #999; font-size: 11px;">Sin gastos aún</li>'}</ul>
+                <p>Debe: <strong>$${deudaTotal.toLocaleString()}</strong></p>
+                <div style="margin: 10px 0; background: #f1f5f9; padding: 5px; border-radius: 5px;">
+                    <ul style="margin: 0; padding-left: 15px;">${listaMat || '<li style="font-size:11px;">Sin gastos</li>'}</ul>
                 </div>
-
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
                     <div>
-                        <h4>Cobros</h4>
-                        <input type="number" id="p-mon-${c.id}" placeholder="$">
-                        <select id="p-met-${c.id}"><option value="banco">Banco</option><option value="efectivo">Efectivo</option><option value="tarjetas">Tarjeta</option></select>
-                        <button onclick="cargarPago(${c.id})" class="btn btn-blue">Cargar</button>
+                        <input type="number" id="p-mon-${c.id}" placeholder="Cobro $">
+                        <select id="p-met-${c.id}"><option value="banco">Banco</option><option value="efectivo">Efe</option></select>
+                        <button onclick="cargarPago(${c.id})" class="btn btn-blue" style="width:100%; padding:5px;">Cobrar</button>
                     </div>
                     <div>
-                        <h4>Materiales</h4>
-                        <input type="text" id="m-det-${c.id}" placeholder="Qué?">
-                        <input type="number" id="m-cos-${c.id}" placeholder="$">
-                        <select id="m-ori-${c.id}"><option value="fondo">Fondo</option><option value="efectivo">Efe</option><option value="banco">Ban</option></select>
-                        <button onclick="cargarMaterial(${c.id})" class="btn btn-red">Gastar</button>
+                        <input type="number" id="m-cos-${c.id}" placeholder="Gasto $">
+                        <select id="m-ori-${c.id}"><option value="fondo">Fondo</option><option value="efectivo">Efe</option></select>
+                        <button onclick="cargarMaterial(${c.id})" class="btn btn-red" style="width:100%; padding:5px;">Gastar</button>
+                        <input type="hidden" id="m-det-${c.id}" value="Material">
                     </div>
                 </div>
             </div>`;
