@@ -3,81 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contabilidad PAC - Portones Automáticos Córdoba</title>
+    <title>PAC Contabilidad Pro - Portones Córdoba</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
-    
     <header>
         <div class="header-top">
-            <img src="logo.png" alt="Logo PAC" class="logo-empresa">
+            <img src="logo.png" alt="Logo PAC" class="logo-empresa" onerror="this.style.display='none'">
             <h1>Contabilidad Portones Automáticos Córdoba</h1>
+        </div>
+        <div class="mes-selector">
+            <select id="select-mes" onchange="cambiarMes()">
+                <option value="actual">Mes en Curso</option>
+                <option value="anterior">Mes Anterior (Archivo)</option>
+            </select>
+            <button onclick="abrirModalCajaHeredada()" class="btn-mini">Carga Inicial / Saldo Heredado</button>
         </div>
         <nav>
             <button id="btn-tesoreria" class="nav-btn active" onclick="cambiarPestaña('tesoreria')">Tesorería</button>
-            <button id="btn-clientes" class="nav-btn" onclick="cambiarPestaña('clientes')">Clientes/Obras</button>
-            <button id="btn-gastos" class="nav-btn" onclick="cambiarPestaña('gastos')">Gastos Grales</button>
-            <button onclick="exportarPDFContador()" class="btn-pdf">Generar PDF Contador</button>
+            <button id="btn-clientes" class="nav-btn" onclick="cambiarPestaña('clientes')">Clientes</button>
+            <button id="btn-gastos" class="nav-btn" onclick="cambiarPestaña('gastos')">Gastos/Retiros</button>
+            <button onclick="exportarPDFContador()" class="btn-pdf">PDF Contador</button>
         </nav>
     </header>
+
+    <div id="modal-herencia" class="modal">
+        <div class="modal-content">
+            <h3>Carga Inicial (Mes Anterior)</h3>
+            <input type="number" id="h-efectivo" placeholder="Efectivo heredado $">
+            <input type="number" id="h-banco" placeholder="Banco heredado $">
+            <div class="flex-btns">
+                <button onclick="guardarHerencia()" class="btn btn-blue">Guardar</button>
+                <button onclick="cerrarModales()" class="btn btn-red">Cancelar</button>
+            </div>
+        </div>
+    </div>
 
     <section id="tesoreria" class="tab-content active">
         <div class="stats-grid">
             <div class="stat-card"><h3>Efectivo</h3><p id="caja-efectivo">$0</p></div>
             <div class="stat-card"><h3>Banco</h3><p id="caja-banco">$0</p></div>
-            <div class="stat-card"><h3>Tarjetas (A liquidar)</h3><p id="caja-tarjetas">$0</p></div>
+            <div class="stat-card"><h3>Tarjetas</h3><p id="caja-tarjetas">$0</p></div>
             <div class="stat-card"><h3>Fondo Común</h3><p id="caja-fondo">$0</p></div>
         </div>
         
         <div class="card">
-            <h3>Movimientos de Caja</h3>
-            <div class="flex-btns">
-                <button onclick="moverBancoAFondo()" class="btn btn-blue">Mover Banco a Fondo</button>
-                <button onclick="acreditarTarjeta()" class="btn btn-yellow">Acreditar Tarjeta en Banco</button>
+            <h3>Transferir entre Cajas</h3>
+            <div class="form-row">
+                <input type="number" id="monto-transferir" placeholder="Monto $">
+                <select id="tipo-transferencia">
+                    <option value="banco-fondo">Banco a Fondo Común</option>
+                    <option value="tarjeta-banco">Acreditar Tarjeta en Banco</option>
+                </select>
+                <button onclick="ejecutarTransferencia()" class="btn btn-blue">Ejecutar</button>
             </div>
         </div>
     </section>
 
     <section id="clientes" class="tab-content">
         <div class="card">
-            <div class="flex-header">
-                <h2>Gestión de Clientes y Obras</h2>
-                <button onclick="nuevoCliente()" class="btn btn-blue">+ Nuevo Cliente</button>
+            <h3>Nueva Obra / Cliente</h3>
+            <div class="form-grid">
+                <input type="text" id="cli-nombre" placeholder="Nombre Cliente">
+                <input type="number" id="cli-coti" placeholder="Cotización Total $">
+                <input type="number" id="cli-pago" placeholder="Pago Inicial $">
+                <select id="cli-metodo">
+                    <option value="efectivo">Efectivo</option>
+                    <option value="banco">Banco</option>
+                    <option value="tarjeta">Tarjeta</option>
+                </select>
+                <button onclick="crearCliente()" class="btn btn-blue">Registrar Obra</button>
             </div>
-            <div id="lista-clientes-container">
-                </div>
         </div>
+        <div id="lista-clientes-container"></div>
     </section>
 
     <section id="gastos" class="tab-content">
         <div class="card">
-            <h3>Retiros de Socios</h3>
-            <div class="flex-btns">
-                <button onclick="registrarRetiro('Pablo')" class="btn btn-yellow">Retiro Pablo</button>
-                <button onclick="registrarRetiro('Fer')" class="btn btn-yellow">Retiro Fer</button>
-            </div>
-            <div class="info-block">
-                <p>Retiro Acumulado Pablo: <strong id="ret-pablo" class="positivo">$0</strong></p>
-                <p>Retiro Acumulado Fer: <strong id="ret-fer" class="positivo">$0</strong></p>
-            </div>
-        </div>
-
-        <div class="card">
-            <h3>Gastos Operativos (GNC, Publicidad, etc.)</h3>
-            <button onclick="nuevoGastoGral()" class="btn btn-red">+ Registrar Gasto</button>
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr><th>Fecha</th><th>Detalle</th><th>Monto</th><th></th></tr>
-                    </thead>
-                    <tbody id="body-gastos-grales"></tbody>
-                </table>
+            <h3>Retiros y Gastos Diarios</h3>
+            <div class="form-row">
+                <select id="gasto-tipo">
+                    <option value="Pablo">Retiro Pablo</option>
+                    <option value="Fer">Retiro Fer</option>
+                    <option value="Gasto">Gasto Gral (GNC/Publicidad)</option>
+                </select>
+                <input type="text" id="gasto-detalle" placeholder="Detalle">
+                <input type="number" id="gasto-monto" placeholder="Monto $">
+                <select id="gasto-origen">
+                    <option value="fondo">De Fondo Común</option>
+                    <option value="efectivo">De Efectivo</option>
+                    <option value="banco">De Banco</option>
+                </select>
+                <button onclick="crearGastoRetiro()" class="btn btn-red">Cargar</button>
             </div>
         </div>
         
-        <button onclick="borrarTodo()" class="btn-borrar-todo">Borrar Todos los Datos / Cerrar Mes</button>
+        <div class="card">
+            <p>Retiros Pablo: <strong id="ret-pablo">$0</strong> | Fer: <strong id="ret-fer">$0</strong></p>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Fecha</th><th>Detalle</th><th>Monto</th><th>Caja</th></tr></thead>
+                <tbody id="body-gastos"></tbody>
+            </table>
+        </div>
     </section>
 
     <script src="script.js"></script>
