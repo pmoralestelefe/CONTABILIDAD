@@ -74,30 +74,31 @@ window.cambiarPeriodo = function() {
 };
 
 window.resetMes = function() {
-    if(!confirm("¿Estás seguro? Se borrarán los retiros y clientes finalizados. Los clientes activos pasarán con su deuda al nuevo mes.")) return;
+    if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0, se borrarán retiros y clientes finalizados. Solo quedarán obras activas con deuda.")) return;
     
     const mesActual = db.periodo;
     
-    // Filtrar: se quedan los que NO terminaron o terminaron en el mes que estamos por empezar
-    db.clientes = db.clientes.filter(c => {
-        if (!c.terminado) return true;
-        if (c.fechaFinalizado && c.fechaFinalizado.substring(0, 7) >= mesActual) return true;
-        return false;
+    // 1. Resetear todas las cajas a Cero
+    db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
+
+    // 2. Reset de retiros de socios
+    db.retiros = { pablo: 0, fer: 0 };
+
+    // 3. Filtrar clientes: se quedan solo los que NO terminaron
+    db.clientes = (db.clientes || []).filter(c => {
+        return !c.terminado; 
     }).map(c => {
-        // Actualizamos su "deuda heredada" para que el contador vea que viene de antes
+        // Calculamos cuánto nos deben al momento del reset y lo guardamos como base
         const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         c.deudaHeredada = c.coti - pagado;
-        // Limpiamos los movimientos del mes pasado para empezar de cero
+        // Limpiamos movimientos para el mes nuevo
         c.pagos = [];
         c.materiales = [];
         return c;
     });
-
-    // Reset de retiros de socios para el nuevo mes
-    db.retiros = { pablo: 0, fer: 0 };
     
     actualizar();
-    alert("Mes reseteado. Los saldos de obras activas han sido migrados.");
+    alert("Sistema reseteado a $0. Solo se conservan las obras en curso.");
 };
 
 window.crearCliente = function() {
@@ -185,7 +186,6 @@ window.acreditarTarjeta = function() {
 
 // 5. PDF Y RENDER
 window.exportarPDF = function() {
-    // IMPORTANTE: Creamos un contenido fresco basado en el estado ACTUAL de la DB
     const tmp = document.createElement('div');
     tmp.style.padding = '30px';
     tmp.style.color = '#000';
@@ -217,7 +217,7 @@ window.exportarPDF = function() {
             <div style="border-bottom:1px solid #ccc; padding:10px 0;">
                 <strong>${c.nom}</strong> ${c.terminado ? '(FINALIZADA)' : '(ACTIVA)'}<br>
                 Coti: $${c.coti.toLocaleString()} | Cobrado: $${pagado.toLocaleString()} | <strong>Debe: $${deudaActual.toLocaleString()}</strong><br>
-                ${c.fechaFinalizado ? `<small>Garantía hasta: ${c.fechaFinalizado}</small>` : ''}
+                ${c.fechaFinalizado ? `<small>Finalizado: ${c.fechaFinalizado}</small>` : ''}
             </div>`;
     });
 
@@ -246,9 +246,14 @@ function render() {
     const mesSeleccionado = db.periodo;
 
     cont.innerHTML = (db.clientes || []).filter(c => {
+        // LÓGICA DE FILTRADO CORREGIDA:
+        // 1. Si la obra no está terminada, se muestra SIEMPRE (son obras en curso).
         if (!c.terminado || !c.fechaFinalizado) return true;
+        
+        // 2. Si está terminada, se muestra ÚNICAMENTE si el mes de finalización coincide exactamente con el mes que estás viendo.
         const mesFinalizado = c.fechaFinalizado.substring(0, 7);
-        return mesFinalizado >= mesSeleccionado;
+        return mesFinalizado === mesSeleccionado;
+        
     }).map(c => {
         const totalPagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         const deudaTotal = c.coti - totalPagado;
