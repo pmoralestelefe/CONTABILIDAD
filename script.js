@@ -54,12 +54,12 @@ onValue(dbRef, (snapshot) => {
 
 function actualizar() { set(dbRef, db); }
 
-// 4. FUNCIONES DE LA APP (IDÉNTICAS A LAS ANTERIORES)
+// 4. FUNCIONES DE LA APP (IDÉNTICAS A LAS ANTERIORES + GARANTÍA)
 window.cambiarPeriodo = function() {
     const nuevoPeriodo = document.getElementById('periodo-actual').value;
     if (nuevoPeriodo) {
         db.periodo = nuevoPeriodo;
-        actualizar(); // Esto lo manda a Firebase para que no se pierda más
+        actualizar(); 
     }
 }
 
@@ -96,6 +96,14 @@ window.toggleTerminado = function(id) {
     actualizar();
 }
 
+window.guardarFechaFin = function(id, fecha) {
+    const cli = db.clientes.find(c => c.id === id);
+    if (cli) {
+        cli.fechaFinalizado = fecha;
+        actualizar();
+    }
+}
+
 window.cargarPago = function(id) {
     const monto = parseFloat(document.getElementById(`p-mon-${id}`).value);
     const met = document.getElementById(`p-met-${id}`).value;
@@ -111,7 +119,7 @@ window.cargarPago = function(id) {
 window.cargarMaterial = function(id) {
     const costo = parseFloat(document.getElementById(`m-cos-${id}`).value);
     const ori = document.getElementById(`m-ori-${id}`).value;
-    const det = document.getElementById(`m-det-${id}`).value || "Material";
+    const det = document.getElementById(`m-det-${id}`).value || "Material general";
     if (costo) {
         const cli = db.clientes.find(c => c.id === id);
         if(!cli.materiales) cli.materiales = [];
@@ -149,53 +157,100 @@ window.acreditarTarjeta = function() {
     }
 }
 
-// 5. PDF Y RENDER (MANTIENE TODO EL DISEÑO)
+// 5. PDF Y RENDER (ACTUALIZADOS PARA EL CONTADOR Y DETALLES)
 window.exportarPDF = function() {
     const elemento = document.createElement('div');
-    elemento.style.padding = '20px';
+    elemento.style.padding = '30px';
+    elemento.style.fontFamily = 'Arial, sans-serif';
+    elemento.style.color = '#333';
     elemento.style.background = '#fff';
-    elemento.innerHTML = `<h1>PORTONES AUTOMÁTICOS CÓRDOBA</h1><h2>Período: ${db.periodo}</h2>`;
-    // ... (El resto de la lógica de PDF que ya tenías)
-    const opt = { margin: 10, filename: `PAC-${db.periodo}.pdf`, jsPDF: { unit: 'mm', format: 'a4' } };
-    html2pdf().set(opt).from(elemento).save();
-}
 
-function render() {
-    document.getElementById('t-banco').innerText = `$${db.cajas.banco.toLocaleString()}`;
-    document.getElementById('t-efectivo').innerText = `$${db.cajas.efectivo.toLocaleString()}`;
-    document.getElementById('t-tarjetas').innerText = `$${db.cajas.tarjetas.toLocaleString()}`;
-    document.getElementById('t-fondo').innerText = `$${db.cajas.fondo.toLocaleString()}`;
-    document.getElementById('t-pablo').innerText = `$${db.retiros.pablo.toLocaleString()}`;
-    document.getElementById('t-fer').innerText = `$${db.retiros.fer.toLocaleString()}`;
+    let html = `
+        <h1 style="color: #3b82f6; text-align: center; margin-bottom: 5px;">PORTONES AUTOMÁTICOS CÓRDOBA</h1>
+        <h2 style="text-align: center; color: #555; margin-top: 0; border-bottom: 2px solid #ccc; padding-bottom: 10px;">
+            Reporte Contable - Período: ${db.periodo || 'Sin definir'}
+        </h2>
+        
+        <h3>1. Estado de Cajas Generales</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr style="background: #f1f5f9;">
+                <th style="border: 1px solid #ccc; padding: 10px;">Banco</th>
+                <th style="border: 1px solid #ccc; padding: 10px;">Efectivo</th>
+                <th style="border: 1px solid #ccc; padding: 10px;">Tarjetas</th>
+                <th style="border: 1px solid #ccc; padding: 10px;">Fondo</th>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ccc; padding: 10px; text-align: center; font-weight: bold;">$${db.cajas.banco.toLocaleString()}</td>
+                <td style="border: 1px solid #ccc; padding: 10px; text-align: center; font-weight: bold;">$${db.cajas.efectivo.toLocaleString()}</td>
+                <td style="border: 1px solid #ccc; padding: 10px; text-align: center; font-weight: bold;">$${db.cajas.tarjetas.toLocaleString()}</td>
+                <td style="border: 1px solid #ccc; padding: 10px; text-align: center; font-weight: bold;">$${db.cajas.fondo.toLocaleString()}</td>
+            </tr>
+        </table>
 
-    const cont = document.getElementById('contenedor-clientes');
-    if(!cont) return;
-    cont.innerHTML = (db.clientes || []).map(c => {
+        <h3>2. Retiros de Socios</h3>
+        <table style="width: 50%; border-collapse: collapse; margin-bottom: 30px;">
+            <tr>
+                <td style="border: 1px solid #ccc; padding: 8px;"><strong>Pablo:</strong></td>
+                <td style="border: 1px solid #ccc; padding: 8px;">$${db.retiros.pablo.toLocaleString()}</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ccc; padding: 8px;"><strong>Fer:</strong></td>
+                <td style="border: 1px solid #ccc; padding: 8px;">$${db.retiros.fer.toLocaleString()}</td>
+            </tr>
+        </table>
+
+        <h3>3. Detalle de Clientes y Obras</h3>
+    `;
+
+    (db.clientes || []).forEach(c => {
         const totalPagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
+        const totalGastado = (c.materiales || []).reduce((a, b) => a + b.costo, 0);
         const deudaTotal = (c.coti + (c.deudaHeredada || 0)) - totalPagado;
-        const listaMat = (c.materiales || []).map(m => `<li style="font-size: 11px;">${m.det}: $${m.costo.toLocaleString()}</li>`).join('');
-        return `
-            <div class="hoja-cliente" style="${c.terminado ? 'opacity: 0.7; border-left: 10px solid #22c55e;' : ''}">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3>${c.nom}</h3>
-                    <label>Terminado: <input type="checkbox" ${c.terminado ? 'checked' : ''} onchange="toggleTerminado(${c.id})"></label>
-                </div>
-                <p>Debe: <strong>$${deudaTotal.toLocaleString()}</strong></p>
-                <div style="margin: 10px 0; background: #f1f5f9; padding: 5px; border-radius: 5px; color:#333;">
-                    <ul style="margin: 0; padding-left: 15px;">${listaMat || '<li style="font-size:11px;">Sin gastos</li>'}</ul>
-                </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
-                    <div>
-                        <input type="number" id="p-mon-${c.id}" placeholder="Cobro $">
-                        <select id="p-met-${c.id}"><option value="banco">Banco</option><option value="efectivo">Efe</option></select>
-                        <button onclick="cargarPago(${c.id})" class="btn btn-blue" style="width:100%; padding:5px;">Cobrar</button>
-                    </div>
-                    <div>
-                        <input type="number" id="m-cos-${c.id}" placeholder="Gasto $">
-                        <select id="m-ori-${c.id}"><option value="fondo">Fondo</option><option value="efectivo">Efe</option></select>
-                        <button onclick="cargarMaterial(${c.id})" class="btn btn-red" style="width:100%; padding:5px;">Gastar</button>
-                    </div>
-                </div>
+        
+        let detalleGastos = (c.materiales || []).map(m => `<li>${m.det}: $${m.costo.toLocaleString()}</li>`).join('');
+        if (!detalleGastos) detalleGastos = "<li>Sin gastos registrados</li>";
+
+        let lineaGarantia = "";
+        if (c.fechaFinalizado) {
+            let fechaFin = new Date(c.fechaFinalizado + 'T12:00:00');
+            fechaFin.setMonth(fechaFin.getMonth() + 6);
+            let vencimientoStr = fechaFin.toLocaleDateString('es-AR');
+            
+            let fechaInicioArr = c.fechaFinalizado.split('-');
+            let inicioStr = `${fechaInicioArr[2]}/${fechaInicioArr[1]}/${fechaInicioArr[0]}`;
+
+            lineaGarantia = `
+            <div style="margin-top: 8px; padding: 5px; background: #e6f4ea; color: #1e8e3e; border-radius: 4px; font-size: 13px;">
+                <strong>Obra Entregada:</strong> ${inicioStr} | <strong>Vencimiento Garantía (6 meses):</strong> ${vencimientoStr}
             </div>`;
-    }).join('');
-}
+        }
+
+        html += `
+        <div style="border: 1px solid #cbd5e1; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid;">
+            <h4 style="margin: 0 0 10px 0; font-size: 18px;">
+                ${c.nom} <span style="color: ${c.terminado ? '#22c55e' : '#f59e0b'}; font-size: 14px;">
+                ${c.terminado ? '(Terminado)' : '(En proceso)'}</span>
+            </h4>
+            <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 10px;">
+                <span><strong>Cotización:</strong> $${c.coti.toLocaleString()}</span>
+                <span><strong>Cobrado:</strong> $${totalPagado.toLocaleString()}</span>
+                <span style="color: #ef4444;"><strong>Resta cobrar:</strong> $${deudaTotal.toLocaleString()}</span>
+            </div>
+            <div style="font-size: 13px; background: #f8fafc; padding: 10px; border-radius: 4px;">
+                <strong>Detalle de Gastos (Total: $${totalGastado.toLocaleString()})</strong>
+                <ul style="margin: 5px 0 0; padding-left: 20px;">${detalleGastos}</ul>
+            </div>
+            ${lineaGarantia}
+        </div>`;
+    });
+
+    elemento.innerHTML = html;
+
+    const opt = { 
+        margin: 10, 
+        filename: `Contabilidad-PAC-${db.periodo}.pdf`, 
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
+    };
+    html2pdf().set(opt).from(elemento).save();
