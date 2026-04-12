@@ -73,6 +73,33 @@ window.cambiarPeriodo = function() {
     }
 };
 
+window.resetMes = function() {
+    if(!confirm("¿Estás seguro? Se borrarán los retiros y clientes finalizados. Los clientes activos pasarán con su deuda al nuevo mes.")) return;
+    
+    const mesActual = db.periodo;
+    
+    // Filtrar: se quedan los que NO terminaron o terminaron en el mes que estamos por empezar
+    db.clientes = db.clientes.filter(c => {
+        if (!c.terminado) return true;
+        if (c.fechaFinalizado && c.fechaFinalizado.substring(0, 7) >= mesActual) return true;
+        return false;
+    }).map(c => {
+        // Actualizamos su "deuda heredada" para que el contador vea que viene de antes
+        const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
+        c.deudaHeredada = c.coti - pagado;
+        // Limpiamos los movimientos del mes pasado para empezar de cero
+        c.pagos = [];
+        c.materiales = [];
+        return c;
+    });
+
+    // Reset de retiros de socios para el nuevo mes
+    db.retiros = { pablo: 0, fer: 0 };
+    
+    actualizar();
+    alert("Mes reseteado. Los saldos de obras activas han sido migrados.");
+};
+
 window.crearCliente = function() {
     const nom = document.getElementById('c-nom').value;
     const coti = parseFloat(document.getElementById('c-coti').value);
@@ -156,33 +183,42 @@ window.acreditarTarjeta = function() {
     }
 };
 
-// 5. PDF Y RENDER (CORREGIDOS)
+// 5. PDF Y RENDER
 window.exportarPDF = function() {
+    // IMPORTANTE: Creamos un contenido fresco basado en el estado ACTUAL de la DB
     const tmp = document.createElement('div');
-    tmp.style.padding = '20px';
+    tmp.style.padding = '30px';
     tmp.style.color = '#000';
     tmp.style.background = '#fff';
 
     let html = `
-        <h1 style="text-align:center">PORTONES AUTOMÁTICOS CÓRDOBA</h1>
-        <h2 style="text-align:center">Reporte Mensual: ${db.periodo}</h2>
+        <h1 style="text-align:center; color:#3b82f6;">PORTONES AUTOMÁTICOS CÓRDOBA</h1>
+        <h2 style="text-align:center;">Reporte: ${db.periodo}</h2>
         <hr>
-        <h3>Resumen de Cajas</h3>
-        <p>Banco: $${db.cajas.banco.toLocaleString()} | Efectivo: $${db.cajas.efectivo.toLocaleString()}</p>
-        <p>Tarjetas: $${(db.cajas.tarjetas || 0).toLocaleString()} | Fondo: $${db.cajas.fondo.toLocaleString()}</p>
-        <h3>Retiros Socios</h3>
-        <p>Pablo: $${db.retiros.pablo.toLocaleString()} | Fer: $${db.retiros.fer.toLocaleString()}</p>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+            <tr>
+                <td><strong>Banco:</strong> $${db.cajas.banco.toLocaleString()}</td>
+                <td><strong>Efectivo:</strong> $${db.cajas.efectivo.toLocaleString()}</td>
+            </tr>
+            <tr>
+                <td><strong>Tarjetas:</strong> $${(db.cajas.tarjetas || 0).toLocaleString()}</td>
+                <td><strong>Fondo:</strong> $${db.cajas.fondo.toLocaleString()}</td>
+            </tr>
+        </table>
+        <p><strong>Retiro Pablo:</strong> $${db.retiros.pablo.toLocaleString()}</p>
+        <p><strong>Retiro Fer:</strong> $${db.retiros.fer.toLocaleString()}</p>
         <hr>
-        <h3>Detalle de Obras en este periodo</h3>`;
+        <h3>Estado de Obras</h3>`;
 
     db.clientes.forEach(c => {
-        // Solo incluir en PDF si no está oculto por fecha o si es relevante al periodo
         const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
-        html += `<div style="margin-bottom:15px; border-bottom:1px solid #ccc; padding-bottom:5px;">
-                    <strong>Cliente: ${c.nom}</strong><br>
-                    Cotización: $${c.coti.toLocaleString()} | Cobrado: $${pagado.toLocaleString()} | Deuda: $${(c.coti - pagado).toLocaleString()}<br>
-                    ${c.fechaFinalizado ? `<small>Finalizado el: ${c.fechaFinalizado} (Garantía 6 meses)</small>` : ''}
-                 </div>`;
+        const deudaActual = c.coti - pagado;
+        html += `
+            <div style="border-bottom:1px solid #ccc; padding:10px 0;">
+                <strong>${c.nom}</strong> ${c.terminado ? '(FINALIZADA)' : '(ACTIVA)'}<br>
+                Coti: $${c.coti.toLocaleString()} | Cobrado: $${pagado.toLocaleString()} | <strong>Debe: $${deudaActual.toLocaleString()}</strong><br>
+                ${c.fechaFinalizado ? `<small>Garantía hasta: ${c.fechaFinalizado}</small>` : ''}
+            </div>`;
     });
 
     tmp.innerHTML = html;
@@ -190,17 +226,13 @@ window.exportarPDF = function() {
     const opciones = {
         margin: 10,
         filename: `PAC-Reporte-${db.periodo}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Esto corrige el PDF en blanco
     html2pdf().set(opciones).from(tmp).save();
 };
 
 function render() {
-    // Totales
     document.getElementById('t-banco').innerText = `$${db.cajas.banco.toLocaleString()}`;
     document.getElementById('t-efectivo').innerText = `$${db.cajas.efectivo.toLocaleString()}`;
     document.getElementById('t-tarjetas').innerText = `$${(db.cajas.tarjetas || 0).toLocaleString()}`;
@@ -211,18 +243,12 @@ function render() {
     const cont = document.getElementById('contenedor-clientes');
     if(!cont) return;
 
-    // LÓGICA DE FILTRADO POR FECHA
-    const mesSeleccionado = db.periodo; // Formato YYYY-MM
+    const mesSeleccionado = db.periodo;
 
     cont.innerHTML = (db.clientes || []).filter(c => {
-        // Si el cliente NO está terminado, se muestra siempre
         if (!c.terminado || !c.fechaFinalizado) return true;
-        
-        // Si está terminado, comparamos el mes de finalización con el mes seleccionado
-        // Solo se muestra si el mes de finalizado es igual o posterior al seleccionado
-        const mesFinalizado = c.fechaFinalizado.substring(0, 7); // Extrae YYYY-MM de YYYY-MM-DD
+        const mesFinalizado = c.fechaFinalizado.substring(0, 7);
         return mesFinalizado >= mesSeleccionado;
-
     }).map(c => {
         const totalPagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         const deudaTotal = c.coti - totalPagado;
