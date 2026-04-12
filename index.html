@@ -9,7 +9,37 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
-<body>
+<body style="display:none;" id="cuerpo-app"> <div id="bloqueo-seguridad" style="position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 20px;">
+        <img src="icono.png" style="height: 60px; margin-bottom: 20px;" onerror="this.style.display='none'">
+        <h2 style="color: white; margin-bottom: 20px; font-size: 18px;">Portones Automáticos Córdoba</h2>
+        <input type="password" id="pass-acceso" placeholder="Contraseña de acceso" style="max-width: 250px; text-align: center; border: 2px solid #3b82f6;">
+        <button onclick="validarAcceso()" class="btn btn-blue" style="max-width: 250px;">Entrar al Sistema</button>
+        <p id="error-pass" style="color: #ef4444; margin-top: 10px; display: none; font-size: 14px;">Clave incorrecta</p>
+    </div>
+
+    <header>
+        <div class="header-top">
+            <img src="icono.png" class="logo-empresa" onerror="this.style.display='none'">
+            <div style="display: flex; flex-direction: column;">
+                <h1>Contabilidad Portones Automáticos Córdoba</h1>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                    <label style="font-size: 12px; color: #94a3b8;">Período:</label>
+                    <input type="month" id="periodo-actual" onchange="cambiarPeriodo()" style="width: auto; margin: 0; padding: 2px 5px; height: 25px; font-size: 12px;">
+                </div>
+            </div>
+        </div>
+        <nav>
+            <button class="nav-btn active" onclick="verTab('principal')">Inicio</button>
+            <button class="nav-btn" onclick="verTab('clientes')">Clientes</button>
+            <button class="nav-btn" onclick="verTab('gastos')">Gastos</button>
+        </nav>
+    </header>
+
+    <div class="container">
+        </div>
+
+    <script type="module" src="script.js"></script>
+</body>
     <header>
         <div class="header-top">
             <img src="icono.png" class="logo-empresa" onerror="this.style.display='none'">
