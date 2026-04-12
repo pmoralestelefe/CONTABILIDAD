@@ -56,8 +56,11 @@ function actualizar() { set(dbRef, db); }
 
 // 4. FUNCIONES DE LA APP (IDÉNTICAS A LAS ANTERIORES)
 window.cambiarPeriodo = function() {
-    db.periodo = document.getElementById('periodo-actual').value;
-    actualizar();
+    const nuevoPeriodo = document.getElementById('periodo-actual').value;
+    if (nuevoPeriodo) {
+        db.periodo = nuevoPeriodo;
+        actualizar(); // Esto lo manda a Firebase para que no se pierda más
+    }
 }
 
 window.verTab = function(id) {
