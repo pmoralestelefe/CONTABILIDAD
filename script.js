@@ -1,12 +1,10 @@
-// 1. CONFIGURACIÓN DE SEGURIDAD (CONEXIÓN DIRECTA AL BOTÓN)
+// 1. CONFIGURACIÓN DE SEGURIDAD
 window.validarAcceso = function() {
     const passIngresada = document.getElementById('pass-acceso').value;
     const claveCorrecta = "PAC2026"; 
-    
     if (passIngresada === claveCorrecta) {
         sessionStorage.setItem('acceso_pac', 'ok');
         document.getElementById('bloqueo-seguridad').style.display = 'none';
-        console.log("Acceso concedido");
     } else {
         document.getElementById('error-pass').style.display = 'block';
     }
@@ -39,7 +37,6 @@ let db = {
 
 // 3. INICIO Y SINCRONIZACIÓN
 document.addEventListener("DOMContentLoaded", () => {
-    // Verificar si ya estaba logueado
     if (sessionStorage.getItem('acceso_pac') === 'ok') {
         const b = document.getElementById('bloqueo-seguridad');
         if(b) b.style.display = 'none';
@@ -50,8 +47,9 @@ onValue(dbRef, (snapshot) => {
     const data = snapshot.val();
     if (data) { 
         db = data;
-        if (db.periodo && document.getElementById('periodo-actual')) {
-            document.getElementById('periodo-actual').value = db.periodo;
+        if (db.periodo) {
+            const el = document.getElementById('periodo-actual');
+            if(el) el.value = db.periodo;
         }
         render();
     }
@@ -59,7 +57,7 @@ onValue(dbRef, (snapshot) => {
 
 function actualizar() { set(dbRef, db); }
 
-// 4. FUNCIONES GLOBALES (PARA QUE EL HTML LAS VEA)
+// 4. FUNCIONES DE LA APP
 window.verTab = function(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -158,74 +156,104 @@ window.acreditarTarjeta = function() {
     }
 };
 
-// 5. PDF Y RENDER
+// 5. PDF Y RENDER (CORREGIDOS)
 window.exportarPDF = function() {
-    const elemento = document.createElement('div');
-    elemento.style.padding = '30px';
-    elemento.style.background = '#fff';
-    elemento.style.color = '#333';
+    const tmp = document.createElement('div');
+    tmp.style.padding = '20px';
+    tmp.style.color = '#000';
+    tmp.style.background = '#fff';
 
-    let html = `<h1 style="text-align:center">PORTONES AUTOMÁTICOS CÓRDOBA</h1>
-                <h2 style="text-align:center">Reporte: ${db.periodo}</h2>
-                <hr>
-                <h3>Cajas:</h3>
-                <p>Banco: $${db.cajas.banco} | Efectivo: $${db.cajas.efectivo} | Tarjetas: $${db.cajas.tarjetas} | Fondo: $${db.cajas.fondo}</p>
-                <h3>Retiros:</h3>
-                <p>Pablo: $${db.retiros.pablo} | Fer: $${db.retiros.fer}</p>
-                <hr>
-                <h3>Clientes:</h3>`;
+    let html = `
+        <h1 style="text-align:center">PORTONES AUTOMÁTICOS CÓRDOBA</h1>
+        <h2 style="text-align:center">Reporte Mensual: ${db.periodo}</h2>
+        <hr>
+        <h3>Resumen de Cajas</h3>
+        <p>Banco: $${db.cajas.banco.toLocaleString()} | Efectivo: $${db.cajas.efectivo.toLocaleString()}</p>
+        <p>Tarjetas: $${(db.cajas.tarjetas || 0).toLocaleString()} | Fondo: $${db.cajas.fondo.toLocaleString()}</p>
+        <h3>Retiros Socios</h3>
+        <p>Pablo: $${db.retiros.pablo.toLocaleString()} | Fer: $${db.retiros.fer.toLocaleString()}</p>
+        <hr>
+        <h3>Detalle de Obras en este periodo</h3>`;
 
     db.clientes.forEach(c => {
-        const pagado = c.pagos.reduce((a,b) => a+b.monto, 0);
-        html += `<div style="border-bottom:1px solid #eee; padding:10px;">
-                    <strong>${c.nom}</strong> - Cotización: $${c.coti} - Deuda: $${c.coti - pagado}<br>
-                    <small>Garantía hasta: ${c.fechaFinalizado || 'No finalizado'}</small>
+        // Solo incluir en PDF si no está oculto por fecha o si es relevante al periodo
+        const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
+        html += `<div style="margin-bottom:15px; border-bottom:1px solid #ccc; padding-bottom:5px;">
+                    <strong>Cliente: ${c.nom}</strong><br>
+                    Cotización: $${c.coti.toLocaleString()} | Cobrado: $${pagado.toLocaleString()} | Deuda: $${(c.coti - pagado).toLocaleString()}<br>
+                    ${c.fechaFinalizado ? `<small>Finalizado el: ${c.fechaFinalizado} (Garantía 6 meses)</small>` : ''}
                  </div>`;
     });
 
-    elemento.innerHTML = html;
-    html2pdf().from(elemento).save(`Reporte-${db.periodo}.pdf`);
+    tmp.innerHTML = html;
+    
+    const opciones = {
+        margin: 10,
+        filename: `PAC-Reporte-${db.periodo}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    // Esto corrige el PDF en blanco
+    html2pdf().set(opciones).from(tmp).save();
 };
 
 function render() {
-    // Actualizar Totales
-    if(document.getElementById('t-banco')) document.getElementById('t-banco').innerText = `$${db.cajas.banco.toLocaleString()}`;
-    if(document.getElementById('t-efectivo')) document.getElementById('t-efectivo').innerText = `$${db.cajas.efectivo.toLocaleString()}`;
-    if(document.getElementById('t-tarjetas')) document.getElementById('t-tarjetas').innerText = `$${(db.cajas.tarjetas || 0).toLocaleString()}`;
-    if(document.getElementById('t-fondo')) document.getElementById('t-fondo').innerText = `$${db.cajas.fondo.toLocaleString()}`;
-    if(document.getElementById('t-pablo')) document.getElementById('t-pablo').innerText = `$${db.retiros.pablo.toLocaleString()}`;
-    if(document.getElementById('t-fer')) document.getElementById('t-fer').innerText = `$${db.retiros.fer.toLocaleString()}`;
+    // Totales
+    document.getElementById('t-banco').innerText = `$${db.cajas.banco.toLocaleString()}`;
+    document.getElementById('t-efectivo').innerText = `$${db.cajas.efectivo.toLocaleString()}`;
+    document.getElementById('t-tarjetas').innerText = `$${(db.cajas.tarjetas || 0).toLocaleString()}`;
+    document.getElementById('t-fondo').innerText = `$${db.cajas.fondo.toLocaleString()}`;
+    document.getElementById('t-pablo').innerText = `$${db.retiros.pablo.toLocaleString()}`;
+    document.getElementById('t-fer').innerText = `$${db.retiros.fer.toLocaleString()}`;
 
     const cont = document.getElementById('contenedor-clientes');
     if(!cont) return;
-    
-    cont.innerHTML = (db.clientes || []).map(c => {
+
+    // LÓGICA DE FILTRADO POR FECHA
+    const mesSeleccionado = db.periodo; // Formato YYYY-MM
+
+    cont.innerHTML = (db.clientes || []).filter(c => {
+        // Si el cliente NO está terminado, se muestra siempre
+        if (!c.terminado || !c.fechaFinalizado) return true;
+        
+        // Si está terminado, comparamos el mes de finalización con el mes seleccionado
+        // Solo se muestra si el mes de finalizado es igual o posterior al seleccionado
+        const mesFinalizado = c.fechaFinalizado.substring(0, 7); // Extrae YYYY-MM de YYYY-MM-DD
+        return mesFinalizado >= mesSeleccionado;
+
+    }).map(c => {
         const totalPagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         const deudaTotal = c.coti - totalPagado;
-        const listaMat = (c.materiales || []).map(m => `<li>${m.det}: $${m.costo}</li>`).join('');
+        const listaMat = (c.materiales || []).map(m => `<li style="font-size:11px;">${m.det}: $${m.costo.toLocaleString()}</li>`).join('');
         
         return `
-            <div class="hoja-cliente" style="${c.terminado ? 'border-left: 5px solid green;' : ''}">
-                <div style="display:flex; justify-content:space-between;">
-                    <h3>${c.nom}</h3>
-                    <input type="date" value="${c.fechaFinalizado || ''}" onchange="guardarFechaFin(${c.id}, this.value)">
+            <div class="hoja-cliente" style="${c.terminado ? 'border-left: 8px solid #22c55e; opacity: 0.8;' : ''}">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3 style="margin:0;">${c.nom}</h3>
+                    <input type="date" value="${c.fechaFinalizado || ''}" onchange="guardarFechaFin(${c.id}, this.value)" style="width:auto; padding:2px;">
                 </div>
-                <p>Deuda: $${deudaTotal.toLocaleString()}</p>
-                <ul>${listaMat}</ul>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <p style="margin:5px 0;">Deuda: <strong style="color:var(--red);">$${deudaTotal.toLocaleString()}</strong></p>
+                <div style="background:rgba(0,0,0,0.1); padding:5px; border-radius:5px; margin-bottom:10px;">
+                    <ul style="margin:0; padding-left:15px;">${listaMat || '<li style="font-size:10px;">Sin gastos</li>'}</ul>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                     <div>
-                        <input type="number" id="p-mon-${c.id}" placeholder="Cobro">
-                        <select id="p-met-${c.id}"><option value="banco">Banco</option><option value="efectivo">Efectivo</option><option value="tarjetas">Tarjeta</option></select>
-                        <button onclick="cargarPago(${c.id})" class="btn btn-blue">Cobrar</button>
+                        <input type="number" id="p-mon-${c.id}" placeholder="Cobro $">
+                        <select id="p-met-${c.id}"><option value="banco">Banco</option><option value="efectivo">Efe</option><option value="tarjetas">Tarjeta</option></select>
+                        <button onclick="cargarPago(${c.id})" class="btn btn-blue" style="width:100%; padding:5px; margin-top:3px;">Cobrar</button>
                     </div>
                     <div>
-                        <input type="text" id="m-det-${c.id}" placeholder="Qué se compró">
-                        <input type="number" id="m-cos-${c.id}" placeholder="Costo">
+                        <input type="text" id="m-det-${c.id}" placeholder="Detalle">
+                        <input type="number" id="m-cos-${c.id}" placeholder="Gasto $">
                         <select id="m-ori-${c.id}"><option value="fondo">Fondo</option><option value="banco">Banco</option></select>
-                        <button onclick="cargarMaterial(${c.id})" class="btn btn-red">Gasto</button>
+                        <button onclick="cargarMaterial(${c.id})" class="btn btn-red" style="width:100%; padding:5px; margin-top:3px;">Gastar</button>
                     </div>
                 </div>
-                <button onclick="toggleTerminado(${c.id})" style="margin-top:10px;">${c.terminado ? 'Reabrir' : 'Finalizar Obra'}</button>
+                <button onclick="toggleTerminado(${c.id})" style="width:100%; margin-top:10px; background:${c.terminado ? '#64748b' : '#22c55e'}; color:white; border:none; padding:5px; border-radius:5px;">
+                    ${c.terminado ? 'Reabrir Obra' : 'Finalizar Obra'}
+                </button>
             </div>`;
     }).join('');
 }
