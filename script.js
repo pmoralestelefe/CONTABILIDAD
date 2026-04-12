@@ -45,7 +45,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 onValue(dbRef, (snapshot) => {
     const data = snapshot.val();
-    if (data) { db = data; render(); }
+    if (data) { db = data;
+               if (db.periodo) document.getElementById('periodo-actual').value = db.periodo;
+        
+        render();
+    }
 });
 
 function actualizar() { set(dbRef, db); }
