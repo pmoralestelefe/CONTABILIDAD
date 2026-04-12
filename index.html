@@ -32,7 +32,7 @@
     </header>
 
     <div class="container">
-        
+
         <div id="tab-inicio" class="tab-content">
             <div class="grid-totales">
                 <div class="card-total"><h3>BANCO</h3><p id="t-banco">$0</p></div>
@@ -46,7 +46,8 @@
             <div class="seccion-form">
                 <h3>Control de Periodo</h3>
                 <input type="month" id="periodo-actual" onchange="cambiarPeriodo()">
-                <button onclick="exportarPDF()" class="btn btn-blue" style="width:100%; background: #059669;">Generar Reporte para Contador</button>
+                <button onclick="exportarPDF()" class="btn btn-blue" style="width:100%; background: #059669; margin-bottom: 10px;">Generar Reporte para Contador</button>
+                <button onclick="resetMes()" class="btn btn-red" style="width:100%; background: #991b1b;">Resetear Mes (Limpiar Planilla)</button>
             </div>
 
             <div class="seccion-form" style="border: 1px solid #334155;">
