@@ -1,34 +1,60 @@
-let db = JSON.parse(localStorage.getItem('pac_db_v8')) || {
+// Configuración de Firebase de Portones Automáticos Córdoba
+const firebaseConfig = {
+    apiKey: "AIzaSyBnXQE-0Qxd1oRtY5jhaxuZ3ISMiOVhgNs",
+    authDomain: "contabilidad-pac.firebaseapp.com",
+    databaseURL: "https://contabilidad-pac-default-rtdb.firebaseio.com",
+    projectId: "contabilidad-pac",
+    storageBucket: "contabilidad-pac.firebasestorage.app",
+    messagingSenderId: "74465692200",
+    appId: "1:74465692200:web:764e4243b94dd2886b431d"
+};
+
+// Importamos lo necesario de Firebase
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+// Inicializamos la App y la Base de Datos
+const app = initializeApp(firebaseConfig);
+const db_firebase = getDatabase(app);
+const dbRef = ref(db_firebase, 'contabilidad');
+
+// Estructura inicial de la base de datos
+let db = {
     cajas: { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 },
     retiros: { pablo: 0, fer: 0 },
     clientes: [],
     periodo: ""
 };
 
-window.onload = () => {
-    if (!db.periodo) {
-        const hoy = new Date();
-        const mes = (hoy.getMonth() + 1).toString().padStart(2, '0');
-        db.periodo = `${hoy.getFullYear()}-${mes}`;
+// --- SINCRONIZACIÓN EN TIEMPO REAL ---
+// Esto detecta cambios hechos desde CUALQUIER dispositivo
+onValue(dbRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+        db = data;
+        render(); // Redibuja la pantalla con los datos nuevos
     }
-    const inputPeriodo = document.getElementById('periodo-actual');
-    if(inputPeriodo) inputPeriodo.value = db.periodo;
-    render();
-};
+});
 
-function cambiarPeriodo() {
+function actualizar() {
+    set(dbRef, db); // Sube los cambios a la nube
+}
+
+// --- LÓGICA DE NEGOCIO ---
+
+window.cambiarPeriodo = function() {
     db.periodo = document.getElementById('periodo-actual').value;
     actualizar();
 }
 
-function verTab(id) {
+window.verTab = function(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-' + id).style.display = 'block';
     if(event) event.currentTarget.classList.add('active');
 }
 
-function cargarTodoHeredado() {
+window.cargarTodoHeredado = function() {
     db.cajas.banco += parseFloat(document.getElementById('h-banco').value) || 0;
     db.cajas.efectivo += parseFloat(document.getElementById('h-efectivo').value) || 0;
     db.cajas.tarjetas += parseFloat(document.getElementById('h-tarjetas').value) || 0;
@@ -40,8 +66,8 @@ function cargarTodoHeredado() {
     actualizar();
 }
 
-function resetearMes() {
-    if(confirm("¿Resetear mes? Se borrarán Retiros y SOLO los Clientes TERMINADOS de la lista de trabajo. Las cajas se mantienen.")) {
+window.resetearMes = function() {
+    if(confirm("¿Resetear mes? Se borrarán Retiros y clientes TERMINADOS en todos los dispositivos.")) {
         db.retiros.pablo = 0;
         db.retiros.fer = 0;
         db.clientes = db.clientes.filter(c => !c.terminado);
@@ -49,13 +75,14 @@ function resetearMes() {
     }
 }
 
-function crearCliente() {
+window.crearCliente = function() {
     const nom = document.getElementById('c-nom').value;
     const tel = document.getElementById('c-tel').value;
     const coti = parseFloat(document.getElementById('c-coti').value);
     const her = parseFloat(document.getElementById('c-heredado').value) || 0;
     
     if (nom && coti) {
+        if(!db.clientes) db.clientes = [];
         db.clientes.push({ 
             id: Date.now(), nom, tel, coti, 
             pagos: [], materiales: [], deudaHeredada: her, terminado: false 
@@ -68,17 +95,18 @@ function crearCliente() {
     }
 }
 
-function toggleTerminado(id) {
+window.toggleTerminado = function(id) {
     const cli = db.clientes.find(c => c.id === id);
     cli.terminado = !cli.terminado;
     actualizar();
 }
 
-function cargarPago(id) {
+window.cargarPago = function(id) {
     const monto = parseFloat(document.getElementById(`p-mon-${id}`).value);
     const met = document.getElementById(`p-met-${id}`).value;
     if (monto) {
         const cli = db.clientes.find(c => c.id === id);
+        if(!cli.pagos) cli.pagos = [];
         cli.pagos.push({ monto, met, fecha: new Date().toLocaleDateString() });
         db.cajas[met] += monto;
         document.getElementById(`p-mon-${id}`).value = '';
@@ -86,21 +114,21 @@ function cargarPago(id) {
     }
 }
 
-function cargarMaterial(id) {
-    const det = document.getElementById(`m-det-${id}`).value;
+window.cargarMaterial = function(id) {
     const costo = parseFloat(document.getElementById(`m-cos-${id}`).value);
     const ori = document.getElementById(`m-ori-${id}`).value;
-    if (det && costo) {
+    const det = document.getElementById(`m-det-${id}`).value || "Material";
+    if (costo) {
         const cli = db.clientes.find(c => c.id === id);
+        if(!cli.materiales) cli.materiales = [];
         cli.materiales.push({ det, costo, fecha: new Date().toLocaleDateString() });
         db.cajas[ori] -= costo;
-        document.getElementById(`m-det-${id}`).value = '';
         document.getElementById(`m-cos-${id}`).value = '';
         actualizar();
     }
 }
 
-function nuevoGastoGral() {
+window.nuevoGastoGral = function() {
     const tipo = document.getElementById('g-tipo').value;
     const monto = parseFloat(document.getElementById('g-mon').value);
     const origen = document.getElementById('g-ori').value;
@@ -113,7 +141,7 @@ function nuevoGastoGral() {
     }
 }
 
-function transferirBancoFondo() {
+window.transferirBancoFondo = function() {
     const m = parseFloat(document.getElementById('trans-monto').value);
     if (m > 0 && m <= db.cajas.banco) {
         db.cajas.banco -= m; db.cajas.fondo += m;
@@ -122,7 +150,7 @@ function transferirBancoFondo() {
     }
 }
 
-function acreditarTarjeta() {
+window.acreditarTarjeta = function() {
     const m = parseFloat(document.getElementById('trans-monto').value);
     if (m > 0 && m <= db.cajas.tarjetas) {
         db.cajas.tarjetas -= m; db.cajas.banco += m;
@@ -131,15 +159,17 @@ function acreditarTarjeta() {
     }
 }
 
-function exportarPDF() {
+// --- PDF Y RENDER ---
+
+window.exportarPDF = function() {
     const elemento = document.createElement('div');
     elemento.style.padding = '20px';
     elemento.style.fontFamily = 'Arial, sans-serif';
     elemento.style.color = '#000';
     elemento.style.background = '#fff';
 
-    let htmlClientes = db.clientes.map(c => {
-        const pagado = c.pagos.reduce((a, b) => a + b.monto, 0);
+    let htmlClientes = (db.clientes || []).map(c => {
+        const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         const deudaTotal = (c.coti + c.deudaHeredada) - pagado;
         return `
             <div style="margin-top: 20px; border: 1px solid #000; padding: 10px;">
@@ -148,13 +178,13 @@ function exportarPDF() {
                 <p>Pagado: $${pagado.toLocaleString()} | <strong>Debe: $${deudaTotal.toLocaleString()}</strong></p>
                 <table style="width:100%; border-collapse: collapse; font-size: 10px; margin-top:10px;">
                     <tr style="background:#ddd; border: 1px solid #000;"><th>Fecha</th><th>Concepto</th><th>Costo</th></tr>
-                    ${c.materiales.map(m => `<tr><td style="border: 1px solid #000; padding:3px;">${m.fecha}</td><td style="border: 1px solid #000; padding:3px;">${m.det}</td><td style="border: 1px solid #000; padding:3px;">$${m.costo.toLocaleString()}</td></tr>`).join('')}
+                    ${(c.materiales || []).map(m => `<tr><td style="border: 1px solid #000; padding:3px;">${m.fecha}</td><td style="border: 1px solid #000; padding:3px;">${m.det}</td><td style="border: 1px solid #000; padding:3px;">$${m.costo.toLocaleString()}</td></tr>`).join('')}
                 </table>
             </div>`;
     }).join('');
 
     elemento.innerHTML = `
-        <h1 style="text-align:center;">MEGAFILM PAC</h1>
+        <h1 style="text-align:center;">PORTONES AUTOMÁTICOS CÓRDOBA</h1>
         <h2 style="text-align:center;">Período: ${db.periodo}</h2>
         <div style="border: 2px solid #000; padding: 10px; margin-bottom: 20px;">
             <p><strong>Banco:</strong> $${db.cajas.banco.toLocaleString()} | <strong>Efe:</strong> $${db.cajas.efectivo.toLocaleString()}</p>
@@ -165,13 +195,8 @@ function exportarPDF() {
         ${htmlClientes}
     `;
 
-    const opt = { margin: 10, filename: `Reporte-${db.periodo}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+    const opt = { margin: 10, filename: `PAC-Reporte-${db.periodo}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
     html2pdf().set(opt).from(elemento).save();
-}
-
-function actualizar() {
-    localStorage.setItem('pac_db_v8', JSON.stringify(db));
-    render();
 }
 
 function render() {
@@ -183,10 +208,12 @@ function render() {
     document.getElementById('t-fer').innerText = `$${db.retiros.fer.toLocaleString()}`;
 
     const cont = document.getElementById('contenedor-clientes');
-    cont.innerHTML = db.clientes.map(c => {
-        const totalPagado = c.pagos.reduce((a, b) => a + b.monto, 0);
-        const deudaTotal = (c.coti + c.deudaHeredada) - totalPagado;
-        const listaMat = c.materiales.map(m => `<li style="font-size: 11px;">${m.det}: $${m.costo.toLocaleString()}</li>`).join('');
+    if(!cont) return;
+
+    cont.innerHTML = (db.clientes || []).map(c => {
+        const totalPagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
+        const deudaTotal = (c.coti + (c.deudaHeredada || 0)) - totalPagado;
+        const listaMat = (c.materiales || []).map(m => `<li style="font-size: 11px;">${m.det}: $${m.costo.toLocaleString()}</li>`).join('');
 
         return `
             <div class="hoja-cliente" style="${c.terminado ? 'opacity: 0.7; border-left: 10px solid #22c55e;' : ''}">
@@ -198,7 +225,7 @@ function render() {
                     </label>
                 </div>
                 <p>Debe: <strong>$${deudaTotal.toLocaleString()}</strong></p>
-                <div style="margin: 10px 0; background: #f1f5f9; padding: 5px; border-radius: 5px;">
+                <div style="margin: 10px 0; background: #f1f5f9; padding: 5px; border-radius: 5px; color:#333;">
                     <ul style="margin: 0; padding-left: 15px;">${listaMat || '<li style="font-size:11px;">Sin gastos</li>'}</ul>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
