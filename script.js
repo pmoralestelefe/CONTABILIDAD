@@ -32,6 +32,7 @@ let db = {
     cajas: { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 },
     retiros: { pablo: 0, fer: 0 },
     clientes: [],
+    historialRetiros: [], // Nuevo arreglo para guardar el detalle de Pablo y Fer
     periodo: ""
 };
 
@@ -60,9 +61,14 @@ function actualizar() { set(dbRef, db); }
 // 4. FUNCIONES DE LA APP
 window.verTab = function(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    
+    // Solo actualiza botones si no estamos en la pestaña interna de detalle
+    if(id !== 'detalle') {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        if(event && event.currentTarget) event.currentTarget.classList.add('active');
+    }
+    
     document.getElementById('tab-' + id).style.display = 'block';
-    if(event && event.currentTarget) event.currentTarget.classList.add('active');
 };
 
 window.cambiarPeriodo = function() {
@@ -81,8 +87,9 @@ window.resetMes = function() {
     // 1. Resetear todas las cajas a Cero
     db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
 
-    // 2. Reset de retiros de socios
+    // 2. Reset de retiros de socios y su historial
     db.retiros = { pablo: 0, fer: 0 };
+    db.historialRetiros = []; // Limpiamos el listado de detalle al resetear el mes
 
     // 3. Filtrar clientes: se quedan solo los que NO terminaron
     db.clientes = (db.clientes || []).filter(c => {
@@ -103,14 +110,16 @@ window.resetMes = function() {
 
 window.crearCliente = function() {
     const nom = document.getElementById('c-nom').value;
+    const tel = document.getElementById('c-tel').value; // Recuperamos el telefono
     const coti = parseFloat(document.getElementById('c-coti').value);
     if (nom && coti) {
         if(!db.clientes) db.clientes = [];
         db.clientes.push({ 
-            id: Date.now(), nom, coti, pagos: [], materiales: [], deudaHeredada: 0, terminado: false 
+            id: Date.now(), nom, tel, coti, pagos: [], materiales: [], deudaHeredada: 0, terminado: false 
         });
         actualizar();
         document.getElementById('c-nom').value = "";
+        document.getElementById('c-tel').value = "";
         document.getElementById('c-coti').value = "";
     }
 };
@@ -161,8 +170,14 @@ window.nuevoGastoGral = function() {
     const monto = parseFloat(document.getElementById('g-mon').value);
     const origen = document.getElementById('g-ori').value;
     if (monto) {
+        if(!db.historialRetiros) db.historialRetiros = [];
+        
         if (tipo === 'Pablo') db.retiros.pablo += monto;
         else if (tipo === 'Fer') db.retiros.fer += monto;
+        
+        // Guardamos el movimiento para el detalle (Aplica a retiros y gastos generales)
+        db.historialRetiros.push({ tipo, monto, origen, fecha: new Date().toLocaleDateString() });
+        
         db.cajas[origen] -= monto;
         actualizar();
     }
@@ -183,6 +198,71 @@ window.acreditarTarjeta = function() {
         actualizar();
     }
 };
+
+// NUEVA FUNCIÓN: VER DETALLE DE MOVIMIENTOS
+window.verDetalle = function(item) {
+    document.getElementById('titulo-detalle').innerText = `Movimientos: ${item}`;
+    let html = '';
+    
+    if (['banco', 'efectivo', 'tarjetas'].includes(item)) {
+        // Buscar pagos ingresados por los clientes en esta caja
+        const movs = [];
+        (db.clientes || []).forEach(c => {
+            (c.pagos || []).forEach(p => {
+                if (p.met === item) {
+                    movs.push({
+                        cliente: c.nom,
+                        tel: c.tel || 'Sin número',
+                        monto: p.monto,
+                        fecha: p.fecha
+                    });
+                }
+            });
+        });
+        
+        if (movs.length === 0) {
+            html = '<p style="color: #94a3b8;">No hay pagos de clientes registrados en esta cuenta.</p>';
+        } else {
+            html = movs.map(m => `
+                <div style="border-bottom: 1px solid #334155; padding: 12px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items: center;">
+                        <strong style="font-size: 16px;">${m.cliente}</strong>
+                        <span style="font-size: 12px; color: #94a3b8;">${m.fecha}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items: center; margin-top: 5px;">
+                        <div style="color: #94a3b8; font-size: 13px;">📞 ${m.tel}</div>
+                        <div style="color: #22c55e; font-weight: bold;">+ $${m.monto.toLocaleString()}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } else if (['pablo', 'fer'].includes(item)) {
+        // Filtrar retiros del historial
+        const nombreCapitalizado = item.charAt(0).toUpperCase() + item.slice(1);
+        const movs = (db.historialRetiros || []).filter(h => h.tipo === nombreCapitalizado);
+        
+        if (movs.length === 0) {
+            html = '<p style="color: #94a3b8;">No hay retiros registrados.</p>';
+        } else {
+            html = movs.map(m => `
+                <div style="border-bottom: 1px solid #334155; padding: 12px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items: center;">
+                        <strong style="font-size: 16px;">Retiro de Socios</strong>
+                        <span style="font-size: 12px; color: #94a3b8;">${m.fecha}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items: center; margin-top: 5px;">
+                        <div style="color: #94a3b8; font-size: 13px;">Desde: ${m.origen.toUpperCase()}</div>
+                        <div style="color: var(--red); font-weight: bold;">- $${m.monto.toLocaleString()}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+    
+    document.getElementById('lista-detalle').innerHTML = html;
+    verTab('detalle'); // Llama a la pestaña oculta
+};
+
 
 // 5. PDF Y RENDER
 window.exportarPDF = function() {
@@ -246,14 +326,9 @@ function render() {
     const mesSeleccionado = db.periodo;
 
     cont.innerHTML = (db.clientes || []).filter(c => {
-        // LÓGICA DE FILTRADO CORREGIDA:
-        // 1. Si la obra no está terminada, se muestra SIEMPRE (son obras en curso).
         if (!c.terminado || !c.fechaFinalizado) return true;
-        
-        // 2. Si está terminada, se muestra ÚNICAMENTE si el mes de finalización coincide exactamente con el mes que estás viendo.
         const mesFinalizado = c.fechaFinalizado.substring(0, 7);
         return mesFinalizado === mesSeleccionado;
-        
     }).map(c => {
         const totalPagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         const deudaTotal = c.coti - totalPagado;
