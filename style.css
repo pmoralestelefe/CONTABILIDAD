@@ -25,9 +25,20 @@ nav { display: flex; border-top: 1px solid #334155; }
 .grid-totales { 
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; 
 }
+
+/* Modificado para que las tarjetas parezcan botones al hacerles click */
 .card-total { 
     background: var(--card); padding: 10px; border-radius: 8px; text-align: center;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
 }
+.card-total:hover {
+    background: #334155;
+}
+.card-total:active {
+    transform: scale(0.98);
+}
+
 .card-total h3 { font-size: 11px; margin: 0; color: #94a3b8; }
 .card-total p { font-size: 16px; font-weight: bold; margin: 5px 0 0; }
 
