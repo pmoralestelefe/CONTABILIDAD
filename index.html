@@ -43,15 +43,6 @@
                 <div class="card-total" style="color: var(--red);" onclick="verDetalle('fer')"><h3>FER</h3><p id="t-fer">$0</p></div>
             </div>
 
-            <div class="seccion-form" style="border: 1px solid #059669;">
-                <h3>Saldo Inicial / Ajuste de Banco</h3>
-                <p style="font-size: 12px; color: #94a3b8; margin-top: 0;">Agregar dinero heredado de meses anteriores o Excel</p>
-                <div style="display: flex; gap: 10px;">
-                    <input type="number" id="ajuste-banco-monto" placeholder="Monto $" style="margin-bottom: 0;">
-                    <button onclick="agregarSaldoBanco()" class="btn btn-blue" style="background: #059669; width: auto; padding: 0 20px;">Sumar a Banco</button>
-                </div>
-            </div>
-
             <div class="seccion-form">
                 <h3>Control de Periodo</h3>
                 <input type="month" id="periodo-actual" onchange="cambiarPeriodo()">
@@ -59,12 +50,27 @@
                 <button onclick="resetMes()" class="btn btn-red" style="width:100%; background: #991b1b;">Resetear Mes (Limpiar Planilla)</button>
             </div>
 
+            <div class="seccion-form" style="border: 1px solid var(--yellow);">
+                <h3>Gastos Publicidad / Otros</h3>
+                <input type="text" id="pub-det" placeholder="Detalle (Ej: Facebook Ads)">
+                <input type="number" id="pub-monto" placeholder="Monto $">
+                <select id="pub-ori">
+                    <option value="efectivo">Efectivo</option>
+                    <option value="banco">Banco</option>
+                </select>
+                <button onclick="cargarGastoPublicidad()" class="btn btn-blue" style="background: var(--yellow); color: black;">Cargar Gasto</button>
+            </div>
+
             <div class="seccion-form" style="border: 1px solid #334155;">
                 <h3>Traspasos y Acreditaciones</h3>
                 <input type="number" id="trans-monto" placeholder="Monto $">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <button onclick="transferirBancoFondo()" class="btn btn-blue" style="font-size: 11px;">Banco a Fondo</button>
-                    <button onclick="acreditarTarjeta()" class="btn btn-blue" style="font-size: 11px; background: #8b5cf6;">Acreditar Tarjetas</button>
+                    <select id="tarjeta-destino" style="font-size: 11px; margin-bottom: 0;">
+                        <option value="banco">A Banco</option>
+                        <option value="fondo">A Fondo</option>
+                    </select>
+                    <button onclick="acreditarTarjeta()" class="btn btn-blue" style="font-size: 11px; background: #8b5cf6; grid-column: span 2;">Acreditar Tarjetas</button>
                 </div>
             </div>
         </div>
@@ -74,72 +80,3 @@
                 <h4 style="margin:0">Nueva Hoja de Obra</h4>
                 <input type="text" id="c-nom" placeholder="Nombre del Cliente">
                 <input type="tel" id="c-tel" placeholder="Teléfono del Cliente (Opcional)">
-                <input type="number" id="c-coti" placeholder="Cotización Total $">
-                <button onclick="crearCliente()" class="btn btn-blue">Crear Hoja</button>
-            </div>
-            <div id="contenedor-clientes"></div>
-        </div>
-
-        <div id="tab-gastos" class="tab-content" style="display:none;">
-            <div class="seccion-form">
-                <h4 style="margin:0">Cargar Retiro o Gasto Gral</h4>
-                <select id="g-tipo">
-                    <option value="Pablo">Retiro Pablo</option>
-                    <option value="Fer">Retiro Fer</option>
-                    <option value="General">Gasto General</option>
-                </select>
-                <input type="number" id="g-mon" placeholder="Monto $">
-                <select id="g-ori">
-                    <option value="efectivo">Efectivo</option>
-                    <option value="banco">Banco</option>
-                    <option value="fondo">Fondo</option>
-                </select>
-                <button onclick="nuevoGastoGral()" class="btn btn-red">Cargar Movimiento</button>
-            </div>
-        </div>
-
-        <div id="tab-detalle" class="tab-content" style="display:none;">
-            <div class="seccion-form">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 id="titulo-detalle" style="margin:0; text-transform: uppercase;">Detalle</h3>
-                    <button onclick="verTab('inicio')" class="btn btn-blue" style="width: auto; padding: 5px 15px;">Volver</button>
-                </div>
-                <div id="lista-detalle">
-                    </div>
-            </div>
-        </div>
-
-    </div>
-
-    <div id="modal-editar" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
-        <div style="background: var(--card); padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto;">
-            <h3 style="margin-top: 0; border-bottom: 1px solid #334155; padding-bottom: 10px;">Editar Obra</h3>
-            
-            <input type="hidden" id="edit-id">
-            <label style="font-size: 12px; color:#94a3b8;">Nombre</label>
-            <input type="text" id="edit-nom">
-            
-            <label style="font-size: 12px; color:#94a3b8;">Teléfono</label>
-            <input type="text" id="edit-tel">
-            
-            <label style="font-size: 12px; color:#94a3b8;">Cotización Total $</label>
-            <input type="number" id="edit-coti">
-            
-            <div style="margin-top: 15px;">
-                <h4 style="margin: 0 0 10px 0; color: #f59e0b;">Corregir Pagos Ingresados</h4>
-                <p style="font-size: 11px; color:#94a3b8; margin-top:0;">Si borrás un pago, el dinero se descontará de la caja automáticamente.</p>
-                <div id="edit-lista-pagos" style="background: #0f172a; padding: 10px; border-radius: 6px; font-size: 12px;"></div>
-            </div>
-
-            <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <button onclick="guardarCambiosCliente()" class="btn btn-blue">Guardar Cambios</button>
-                <button onclick="cerrarModalEditar()" class="btn" style="background: #64748b; color: white;">Cancelar</button>
-            </div>
-            
-            <button onclick="borrarObraCompleta()" class="btn btn-red" style="width: 100%; margin-top: 30px; border: 1px solid #f87171; background: transparent; color: #f87171;">⚠️ BORRAR OBRA POR COMPLETO</button>
-        </div>
-    </div>
-
-    <script type="module" src="script.js"></script>
-</body>
-</html>
