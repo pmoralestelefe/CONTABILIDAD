@@ -11,7 +11,7 @@
 
     <div id="bloqueo-seguridad" style="position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
         <div style="background: var(--card); padding: 30px; border-radius: 15px; text-align: center; width: 100%; max-width: 350px;">
-            <img src="logo.png" style="height: 60px; margin-bottom: 20px; border-radius: 10px;">
+            <img src="logo.png" style="height: 60px; margin-bottom: 20px; border-radius: 10px;" alt="Logo">
             <h2 style="margin: 0 0 20px 0;">Acceso PAC</h2>
             <input type="password" id="pass-acceso" placeholder="Contraseña" style="text-align: center; font-size: 18px;">
             <button onclick="validarAcceso()" class="btn btn-blue" style="width: 100%; margin-top: 10px;">Entrar</button>
@@ -41,6 +41,7 @@
                 <div class="card-total"><h3>FONDO</h3><p id="t-fondo">$0</p></div>
                 <div class="card-total" style="color: var(--red);" onclick="verDetalle('pablo')"><h3>PABLO</h3><p id="t-pablo">$0</p></div>
                 <div class="card-total" style="color: var(--red);" onclick="verDetalle('fer')"><h3>FER</h3><p id="t-fer">$0</p></div>
+                <div class="card-total" style="color: var(--yellow);" onclick="verDetalle('publicidad')"><h3>PUBLICIDAD/OTROS</h3><p id="t-publicidad">$0</p></div>
             </div>
 
             <div class="seccion-form">
@@ -51,14 +52,27 @@
             </div>
 
             <div class="seccion-form" style="border: 1px solid var(--yellow);">
-                <h3>Gastos Publicidad / Otros</h3>
-                <input type="text" id="pub-det" placeholder="Detalle (Ej: Facebook Ads)">
-                <input type="number" id="pub-monto" placeholder="Monto $">
-                <select id="pub-ori">
+                <h3>Pagos por Publicidad y Otros</h3>
+                <input type="text" id="publi-det" placeholder="Detalle (Ej. Meta Ads, Insumos...)">
+                <input type="number" id="publi-monto" placeholder="Monto $">
+                <select id="publi-ori">
                     <option value="efectivo">Efectivo</option>
                     <option value="banco">Banco</option>
                 </select>
-                <button onclick="cargarGastoPublicidad()" class="btn btn-blue" style="background: var(--yellow); color: black;">Cargar Gasto</button>
+                <button onclick="cargarGastoPublicidad()" class="btn btn-red" style="width: 100%;">Registrar Gasto</button>
+            </div>
+
+            <div class="seccion-form" style="border: 1px solid #334155;">
+                <h3>Ajuste de Saldo / Ingreso Manual</h3>
+                <input type="number" id="ajuste-monto" placeholder="Monto a sumar $">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <select id="ajuste-caja" style="margin-bottom: 0;">
+                        <option value="fondo">Fondo</option>
+                        <option value="banco">Banco</option>
+                        <option value="efectivo">Efectivo</option>
+                    </select>
+                    <button onclick="ajustarSaldo()" class="btn btn-blue" style="font-size: 13px;">Sumar a Caja</button>
+                </div>
             </div>
 
             <div class="seccion-form" style="border: 1px solid #334155;">
@@ -66,11 +80,7 @@
                 <input type="number" id="trans-monto" placeholder="Monto $">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <button onclick="transferirBancoFondo()" class="btn btn-blue" style="font-size: 11px;">Banco a Fondo</button>
-                    <select id="tarjeta-destino" style="font-size: 11px; margin-bottom: 0;">
-                        <option value="banco">A Banco</option>
-                        <option value="fondo">A Fondo</option>
-                    </select>
-                    <button onclick="acreditarTarjeta()" class="btn btn-blue" style="font-size: 11px; background: #8b5cf6; grid-column: span 2;">Acreditar Tarjetas</button>
+                    <button onclick="acreditarTarjeta()" class="btn btn-blue" style="font-size: 11px; background: #8b5cf6;">Acreditar Tarjetas</button>
                 </div>
             </div>
         </div>
@@ -80,3 +90,43 @@
                 <h4 style="margin:0">Nueva Hoja de Obra</h4>
                 <input type="text" id="c-nom" placeholder="Nombre del Cliente">
                 <input type="tel" id="c-tel" placeholder="Teléfono del Cliente (Opcional)">
+                <input type="number" id="c-coti" placeholder="Cotización Total $">
+                <button onclick="crearCliente()" class="btn btn-blue">Crear Hoja</button>
+            </div>
+            <div id="contenedor-clientes"></div>
+        </div>
+
+        <div id="tab-gastos" class="tab-content" style="display:none;">
+            <div class="seccion-form">
+                <h4 style="margin:0">Cargar Retiro o Gasto Gral</h4>
+                <select id="g-tipo">
+                    <option value="Pablo">Retiro Pablo</option>
+                    <option value="Fer">Retiro Fer</option>
+                    <option value="General">Gasto General</option>
+                </select>
+                <input type="number" id="g-mon" placeholder="Monto $">
+                <select id="g-ori">
+                    <option value="efectivo">Efectivo</option>
+                    <option value="banco">Banco</option>
+                    <option value="fondo">Fondo</option>
+                </select>
+                <button onclick="nuevoGastoGral()" class="btn btn-red">Cargar Movimiento</button>
+            </div>
+        </div>
+
+        <div id="tab-detalle" class="tab-content" style="display:none;">
+            <div class="seccion-form">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 id="titulo-detalle" style="margin:0; text-transform: uppercase;">Detalle</h3>
+                    <button onclick="verTab('inicio')" class="btn btn-blue" style="width: auto; padding: 5px 15px;">Volver</button>
+                </div>
+                <div id="lista-detalle">
+                    </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
