@@ -64,3 +64,11 @@ input, select {
     .grid-totales { grid-template-columns: 1fr 1fr; }
     h1 { font-size: 14px; }
 }
+
+/* ESTILOS CALCULADORA FLOTANTE */
+.btn-calc { padding: 12px; font-size: 18px; background: #334155; color: white; border-radius: 6px; border: none; cursor: pointer;}
+.btn-calc:hover { background: #475569; }
+.btn-calc:active { transform: scale(0.95); }
+.btn-op { background: var(--blue); }
+.btn-clear { background: var(--red); }
+.btn-eq { background: #22c55e; }
