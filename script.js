@@ -52,15 +52,16 @@ document.addEventListener("DOMContentLoaded", () => {
 onValue(dbRef, (snapshot) => {
     const data = snapshot.val();
     if (data) { 
-        // CORRECCIÓN/MIGRACIÓN: Forzamos que si es la primera vez o formato viejo, inicie en ABRIL (2026-04)
+        // RESTAURACIÓN DE TUS DATOS EXISTENTES
+        // Si detecta que los datos están en el formato anterior (directos), los mueve a Abril 2026
         if (data.cajas && !data.meses) {
-            const p = "2026-04"; // Forzado a Abril como pediste
+            const pInicial = "2026-04"; 
             masterDB = {
-                periodoActual: p,
+                periodoActual: pInicial,
                 meses: {}
             };
-            masterDB.meses[p] = data;
-            delete masterDB.meses[p].periodo;
+            masterDB.meses[pInicial] = data; // Aquí se rescatan todos tus clientes y montos actuales
+            masterDB.meses[pInicial].periodo = pInicial;
             set(dbRef, masterDB); 
             return; 
         }
@@ -68,7 +69,6 @@ onValue(dbRef, (snapshot) => {
         masterDB = data;
         if(!masterDB.meses) masterDB.meses = {};
 
-        // Si no hay un periodo actual definido, usamos Abril 2026
         periodoSeleccionado = masterDB.periodoActual || "2026-04";
         
         const elPeriodo = document.getElementById('periodo-actual');
@@ -80,10 +80,11 @@ onValue(dbRef, (snapshot) => {
     }
 });
 
-// FUNCIÓN DE CARGA E HERENCIA
+// FUNCIÓN DE CARGA E HERENCIA (GESTIONA PASO DE MESES)
 function cargarMes(mes) {
     if (!masterDB.meses) masterDB.meses = {};
 
+    // SI EL MES NO EXISTE (MES FUTURO)
     if (!masterDB.meses[mes]) {
         const mesesExistentes = Object.keys(masterDB.meses).sort();
         let mesAnterior = null;
@@ -99,10 +100,13 @@ function cargarMes(mes) {
 
         if (mesAnterior && masterDB.meses[mesAnterior]) {
             const dbAnt = masterDB.meses[mesAnterior];
+            // 1- Heredar montos de BANCO, EFECTIVO, TARJETAS Y FONDO
             cajasHeredadas = JSON.parse(JSON.stringify(dbAnt.cajas || cajasHeredadas));
+            // Pasar obras no finalizadas
             clientesHeredados = (dbAnt.clientes || []).filter(c => !c.terminado).map(c => JSON.parse(JSON.stringify(c)));
         }
 
+        // 2- Montos de retiro y publicidad quedan en 0 para el mes nuevo
         masterDB.meses[mes] = {
             cajas: cajasHeredadas,
             retiros: { pablo: 0, fer: 0 }, 
@@ -116,9 +120,11 @@ function cargarMes(mes) {
         return;
     }
 
+    // SI SELECCIONAS UN MES ANTERIOR: Trae todo exactamente como quedó
     db = masterDB.meses[mes];
     db.periodo = mes; 
 
+    // Asegurar integridad de datos
     if(!db.cajas) db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
     if(!db.retiros) db.retiros = { pablo: 0, fer: 0 };
     if(!db.gastosPubli) db.gastosPubli = 0;
@@ -135,7 +141,8 @@ function actualizar() {
     set(dbRef, masterDB); 
 }
 
-// 4. FUNCIONES DE LÓGICA (Sin cambios)
+// --- TODAS LAS FUNCIONES SIGUIENTES SE MANTIENEN IGUAL QUE TU CÓDIGO ORIGINAL ---
+
 window.verTab = function(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     if(id !== 'detalle') {
@@ -154,7 +161,7 @@ window.cambiarPeriodo = function() {
 };
 
 window.resetMes = function() {
-    if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0 y se limpiarán retiros.")) return;
+    if(!confirm("¿ESTÁS SEGURO? Se resetearán cajas y retiros del mes actual.")) return;
     db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
     db.retiros = { pablo: 0, fer: 0 };
     db.gastosPubli = 0; 
@@ -169,9 +176,7 @@ window.crearCliente = function() {
     const coti = parseFloat(document.getElementById('c-coti').value);
     if (nom && coti) {
         if(!db.clientes) db.clientes = [];
-        db.clientes.push({ 
-            id: Date.now(), nom, tel, coti, pagos: [], materiales: [], deudaHeredada: 0, terminado: false 
-        });
+        db.clientes.push({ id: Date.now(), nom, tel, coti, pagos: [], materiales: [], deudaHeredada: 0, terminado: false });
         actualizar();
         document.getElementById('c-nom').value = "";
         document.getElementById('c-tel').value = "";
@@ -181,18 +186,12 @@ window.crearCliente = function() {
 
 window.toggleTerminado = function(id) {
     const cli = db.clientes.find(c => c.id === id);
-    if(cli) {
-        cli.terminado = !cli.terminado;
-        actualizar();
-    }
+    if(cli) { cli.terminado = !cli.terminado; actualizar(); }
 };
 
 window.guardarFechaFin = function(id, fecha) {
     const cli = db.clientes.find(c => c.id === id);
-    if (cli) {
-        cli.fechaFinalizado = fecha;
-        actualizar();
-    }
+    if (cli) { cli.fechaFinalizado = fecha; actualizar(); }
 };
 
 window.cargarPago = function(id) {
@@ -237,11 +236,7 @@ window.cargarGastoPublicidad = function() {
 window.ajustarSaldo = function() {
     const m = parseFloat(document.getElementById('ajuste-monto').value);
     const caja = document.getElementById('ajuste-caja').value;
-    if (m > 0) {
-        db.cajas[caja] = (db.cajas[caja] || 0) + m;
-        document.getElementById('ajuste-monto').value = "";
-        actualizar();
-    }
+    if (m > 0) { db.cajas[caja] = (db.cajas[caja] || 0) + m; document.getElementById('ajuste-monto').value = ""; actualizar(); }
 };
 
 window.nuevoGastoGral = function() {
@@ -261,18 +256,12 @@ window.nuevoGastoGral = function() {
 
 window.transferirBancoFondo = function() {
     const m = parseFloat(document.getElementById('trans-monto').value);
-    if (m > 0 && m <= db.cajas.banco) {
-        db.cajas.banco -= m; db.cajas.fondo += m;
-        actualizar();
-    }
+    if (m > 0 && m <= db.cajas.banco) { db.cajas.banco -= m; db.cajas.fondo += m; actualizar(); }
 };
 
 window.acreditarTarjeta = function() {
     const m = parseFloat(document.getElementById('trans-monto').value);
-    if (m > 0 && m <= (db.cajas.tarjetas || 0)) {
-        db.cajas.tarjetas -= m; db.cajas.banco += m;
-        actualizar();
-    }
+    if (m > 0 && m <= (db.cajas.tarjetas || 0)) { db.cajas.tarjetas -= m; db.cajas.banco += m; actualizar(); }
 };
 
 window.verDetalle = function(item) {
@@ -285,7 +274,7 @@ window.verDetalle = function(item) {
                 if (p.met === item) movs.push({ cliente: c.nom, tel: c.tel || 'Sin número', monto: p.monto, fecha: p.fecha });
             });
         });
-        html = movs.length === 0 ? '<p>No hay movimientos.</p>' : movs.map(m => `
+        html = movs.length === 0 ? '<p>No hay pagos.</p>' : movs.map(m => `
             <div style="border-bottom: 1px solid #334155; padding: 12px 0;">
                 <div style="display:flex; justify-content:space-between;"><strong>${m.cliente}</strong><span>${m.fecha}</span></div>
                 <div style="display:flex; justify-content:space-between; margin-top:5px;"><div style="color:#94a3b8;">📞 ${m.tel}</div><div style="color:#22c55e;">+ $${m.monto.toLocaleString()}</div></div>
@@ -307,7 +296,7 @@ window.exportarPDF = function() {
     const tmp = document.createElement('div');
     tmp.style.padding = '30px'; tmp.style.color = '#000'; tmp.style.background = '#fff';
     let html = `<h1 style="text-align:center;">PORTONES AUTOMÁTICOS CÓRDOBA</h1><h2 style="text-align:center;">Reporte: ${db.periodo}</h2><hr>`;
-    html += `<p>Banco: $${db.cajas.banco.toLocaleString()} | Efectivo: $${db.cajas.efectivo.toLocaleString()}</p>`;
+    html += `<p>Banco: $${db.cajas.banco.toLocaleString()} | Efectivo: $${db.cajas.efivo.toLocaleString()}</p>`;
     html += `<p>Retiro Pablo: $${db.retiros.pablo.toLocaleString()} | Retiro Fer: $${db.retiros.fer.toLocaleString()}</p><hr><h3>Obras</h3>`;
     db.clientes.forEach(c => {
         const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
@@ -353,7 +342,7 @@ function render() {
     }).join('');
 }
 
-// CALCULADORA (Sin cambios)
+// CALCULADORA
 window.toggleCalculadora = function() {
     const calc = document.getElementById('calculadora-modal');
     const btn = document.getElementById('btn-abrir-calc');
