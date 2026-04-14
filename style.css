@@ -5,7 +5,7 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { 
     margin: 0; font-family: sans-serif; background: var(--bg); color: var(--text); 
-    padding-top: 110px; /* Espacio para el header fijo */
+    padding-top: 110px;
 }
 header { 
     position: fixed; top: 0; width: 100%; background: var(--card); z-index: 100;
@@ -26,18 +26,13 @@ nav { display: flex; border-top: 1px solid #334155; }
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; 
 }
 
-/* Modificado para que las tarjetas parezcan botones al hacerles click */
 .card-total { 
     background: var(--card); padding: 10px; border-radius: 8px; text-align: center;
     cursor: pointer;
     transition: background 0.2s ease, transform 0.1s ease;
 }
-.card-total:hover {
-    background: #334155;
-}
-.card-total:active {
-    transform: scale(0.98);
-}
+.card-total:hover { background: #334155; }
+.card-total:active { transform: scale(0.98); }
 
 .card-total h3 { font-size: 11px; margin: 0; color: #94a3b8; }
 .card-total p { font-size: 16px; font-weight: bold; margin: 5px 0 0; }
@@ -60,7 +55,6 @@ input, select {
 }
 .hoja-cliente h3 { margin: 0; font-size: 18px; }
 
-/* AJUSTES CELULAR */
 @media (max-width: 500px) {
     .grid-totales { grid-template-columns: 1fr 1fr; }
     h1 { font-size: 14px; }
