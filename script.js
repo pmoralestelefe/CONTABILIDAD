@@ -31,6 +31,7 @@ const dbRef = ref(db_firebase, 'contabilidad');
 let db = {
     cajas: { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 },
     retiros: { pablo: 0, fer: 0 },
+    gastosPubli: 0, // Nueva propiedad para Publicidad/Otros
     clientes: [],
     historialRetiros: [], 
     periodo: ""
@@ -48,6 +49,9 @@ onValue(dbRef, (snapshot) => {
     const data = snapshot.val();
     if (data) { 
         db = data;
+        if(!db.gastosPubli) db.gastosPubli = 0; // Aseguramos que exista
+        if(!db.historialRetiros) db.historialRetiros = [];
+
         if (db.periodo) {
             const el = document.getElementById('periodo-actual');
             if(el) el.value = db.periodo;
@@ -61,10 +65,12 @@ function actualizar() { set(dbRef, db); }
 // 4. FUNCIONES DE LA APP
 window.verTab = function(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    
     if(id !== 'detalle') {
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         if(event && event.currentTarget) event.currentTarget.classList.add('active');
     }
+    
     document.getElementById('tab-' + id).style.display = 'block';
 };
 
@@ -78,22 +84,29 @@ window.cambiarPeriodo = function() {
 
 window.resetMes = function() {
     if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0, se borrarán retiros y clientes finalizados. Solo quedarán obras activas con deuda.")) return;
+    
     db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
     db.retiros = { pablo: 0, fer: 0 };
+    db.gastosPubli = 0; // Limpiamos la publicidad del mes
     db.historialRetiros = []; 
-    db.clientes = (db.clientes || []).filter(c => !c.terminado).map(c => {
+
+    db.clientes = (db.clientes || []).filter(c => {
+        return !c.terminado; 
+    }).map(c => {
         const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         c.deudaHeredada = c.coti - pagado;
         c.pagos = [];
         c.materiales = [];
         return c;
     });
+    
     actualizar();
+    alert("Sistema reseteado a $0. Solo se conservan las obras en curso.");
 };
 
 window.crearCliente = function() {
     const nom = document.getElementById('c-nom').value;
-    const tel = document.getElementById('c-tel').value;
+    const tel = document.getElementById('c-tel').value; 
     const coti = parseFloat(document.getElementById('c-coti').value);
     if (nom && coti) {
         if(!db.clientes) db.clientes = [];
@@ -148,32 +161,52 @@ window.cargarMaterial = function(id) {
     }
 };
 
+// NUEVA FUNCIÓN: Cargar Publicidad
+window.cargarGastoPublicidad = function() {
+    const det = document.getElementById('publi-det').value || 'Publicidad/Otros';
+    const m = parseFloat(document.getElementById('publi-monto').value);
+    const ori = document.getElementById('publi-ori').value;
+    
+    if (m > 0) {
+        db.gastosPubli = (db.gastosPubli || 0) + m;
+        db.historialRetiros.push({
+            tipo: 'Publicidad',
+            detalle: det,
+            monto: m,
+            origen: ori,
+            fecha: new Date().toLocaleDateString()
+        });
+        db.cajas[ori] -= m;
+        document.getElementById('publi-det').value = "";
+        document.getElementById('publi-monto').value = "";
+        actualizar();
+    }
+};
+
+// NUEVA FUNCIÓN: Ajuste Manual de Saldo
+window.ajustarSaldo = function() {
+    const m = parseFloat(document.getElementById('ajuste-monto').value);
+    const caja = document.getElementById('ajuste-caja').value;
+    if (m > 0) {
+        db.cajas[caja] = (db.cajas[caja] || 0) + m;
+        document.getElementById('ajuste-monto').value = "";
+        actualizar();
+    }
+};
+
 window.nuevoGastoGral = function() {
     const tipo = document.getElementById('g-tipo').value;
     const monto = parseFloat(document.getElementById('g-mon').value);
     const origen = document.getElementById('g-ori').value;
     if (monto) {
         if(!db.historialRetiros) db.historialRetiros = [];
+        
         if (tipo === 'Pablo') db.retiros.pablo += monto;
         else if (tipo === 'Fer') db.retiros.fer += monto;
+        
         db.historialRetiros.push({ tipo, monto, origen, fecha: new Date().toLocaleDateString() });
         db.cajas[origen] -= monto;
         actualizar();
-    }
-};
-
-// MEJORA 1: FUNCIÓN PARA GASTO DE PUBLICIDAD
-window.cargarGastoPublicidad = function() {
-    const det = document.getElementById('pub-det').value || "Publicidad/Gasto";
-    const monto = parseFloat(document.getElementById('pub-monto').value);
-    const origen = document.getElementById('pub-ori').value;
-    if (monto) {
-        if(!db.historialRetiros) db.historialRetiros = [];
-        db.historialRetiros.push({ tipo: 'General', monto, origen, fecha: new Date().toLocaleDateString(), detalle: det });
-        db.cajas[origen] -= monto;
-        actualizar();
-        document.getElementById('pub-det').value = "";
-        document.getElementById('pub-monto').value = "";
     }
 };
 
@@ -185,40 +218,36 @@ window.transferirBancoFondo = function() {
     }
 };
 
-// MEJORA 3: ACREDITAR TARJETA A BANCO O FONDO
 window.acreditarTarjeta = function() {
     const m = parseFloat(document.getElementById('trans-monto').value);
-    const destino = document.getElementById('tarjeta-destino').value;
     if (m > 0 && m <= (db.cajas.tarjetas || 0)) {
-        db.cajas.tarjetas -= m; 
-        db.cajas[destino] += m;
+        db.cajas.tarjetas -= m; db.cajas.banco += m;
         actualizar();
     }
 };
 
+// VER DETALLE
 window.verDetalle = function(item) {
     document.getElementById('titulo-detalle').innerText = `Movimientos: ${item}`;
     let html = '';
     
-    if (['banco', 'efectivo', 'tarjetas', 'fondo'].includes(item)) {
+    if (['banco', 'efectivo', 'tarjetas'].includes(item)) {
         const movs = [];
         (db.clientes || []).forEach(c => {
             (c.pagos || []).forEach(p => {
                 if (p.met === item) {
-                    movs.push({ cliente: c.nom, tel: c.tel || 'Sin número', monto: p.monto, fecha: p.fecha, tipo: 'INGRESO' });
+                    movs.push({
+                        cliente: c.nom,
+                        tel: c.tel || 'Sin número',
+                        monto: p.monto,
+                        fecha: p.fecha
+                    });
                 }
             });
         });
-
-        // Sumar gastos generales/publicidad en la vista de detalle si restan de la caja
-        (db.historialRetiros || []).forEach(h => {
-            if(h.origen === item) {
-                movs.push({ cliente: h.tipo + (h.detalle ? ': '+h.detalle : ''), tel: '-', monto: -h.monto, fecha: h.fecha, tipo: 'GASTO' });
-            }
-        });
         
         if (movs.length === 0) {
-            html = '<p style="color: #94a3b8;">No hay registros.</p>';
+            html = '<p style="color: #94a3b8;">No hay pagos de clientes registrados en esta cuenta.</p>';
         } else {
             html = movs.map(m => `
                 <div style="border-bottom: 1px solid #334155; padding: 12px 0;">
@@ -227,23 +256,23 @@ window.verDetalle = function(item) {
                         <span style="font-size: 12px; color: #94a3b8;">${m.fecha}</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items: center; margin-top: 5px;">
-                        <div style="color: #94a3b8; font-size: 13px;">${m.tel}</div>
-                        <div style="color: ${m.monto > 0 ? '#22c55e' : 'var(--red)'}; font-weight: bold;">${m.monto > 0 ? '+' : ''} $${m.monto.toLocaleString()}</div>
+                        <div style="color: #94a3b8; font-size: 13px;">📞 ${m.tel}</div>
+                        <div style="color: #22c55e; font-weight: bold;">+ $${m.monto.toLocaleString()}</div>
                     </div>
                 </div>
             `).join('');
         }
-    } else if (['pablo', 'fer'].includes(item)) {
-        const nombreCapitalizado = item.charAt(0).toUpperCase() + item.slice(1);
-        const movs = (db.historialRetiros || []).filter(h => h.tipo === nombreCapitalizado);
+    } else if (['pablo', 'fer', 'publicidad'].includes(item)) {
+        const tipoFiltro = item === 'publicidad' ? 'Publicidad' : (item.charAt(0).toUpperCase() + item.slice(1));
+        const movs = (db.historialRetiros || []).filter(h => h.tipo === tipoFiltro);
         
         if (movs.length === 0) {
-            html = '<p style="color: #94a3b8;">No hay retiros registrados.</p>';
+            html = '<p style="color: #94a3b8;">No hay movimientos registrados.</p>';
         } else {
             html = movs.map(m => `
                 <div style="border-bottom: 1px solid #334155; padding: 12px 0;">
                     <div style="display:flex; justify-content:space-between; align-items: center;">
-                        <strong style="font-size: 16px;">Retiro de Socios</strong>
+                        <strong style="font-size: 16px;">${m.detalle || (item === 'publicidad' ? 'Gasto General' : 'Retiro de Socios')}</strong>
                         <span style="font-size: 12px; color: #94a3b8;">${m.fecha}</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items: center; margin-top: 5px;">
@@ -256,9 +285,11 @@ window.verDetalle = function(item) {
     }
     
     document.getElementById('lista-detalle').innerHTML = html;
-    verTab('detalle');
+    verTab('detalle'); 
 };
 
+
+// 5. PDF Y RENDER
 window.exportarPDF = function() {
     const tmp = document.createElement('div');
     tmp.style.padding = '30px';
@@ -281,6 +312,7 @@ window.exportarPDF = function() {
         </table>
         <p><strong>Retiro Pablo:</strong> $${db.retiros.pablo.toLocaleString()}</p>
         <p><strong>Retiro Fer:</strong> $${db.retiros.fer.toLocaleString()}</p>
+        <p><strong>Publicidad / Otros:</strong> $${(db.gastosPubli || 0).toLocaleString()}</p>
         <hr>
         <h3>Estado de Obras</h3>`;
 
@@ -296,7 +328,13 @@ window.exportarPDF = function() {
     });
 
     tmp.innerHTML = html;
-    const opciones = { margin: 10, filename: `PAC-Reporte-${db.periodo}.pdf`, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+    
+    const opciones = {
+        margin: 10,
+        filename: `PAC-Reporte-${db.periodo}.pdf`,
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
     html2pdf().set(opciones).from(tmp).save();
 };
 
@@ -307,6 +345,10 @@ function render() {
     document.getElementById('t-fondo').innerText = `$${db.cajas.fondo.toLocaleString()}`;
     document.getElementById('t-pablo').innerText = `$${db.retiros.pablo.toLocaleString()}`;
     document.getElementById('t-fer').innerText = `$${db.retiros.fer.toLocaleString()}`;
+    
+    // Render de publicidad
+    const elPubli = document.getElementById('t-publicidad');
+    if(elPubli) elPubli.innerText = `$${(db.gastosPubli || 0).toLocaleString()}`;
 
     const cont = document.getElementById('contenedor-clientes');
     if(!cont) return;
@@ -341,7 +383,11 @@ function render() {
                     <div>
                         <input type="text" id="m-det-${c.id}" placeholder="Detalle">
                         <input type="number" id="m-cos-${c.id}" placeholder="Gasto $">
-                        <select id="m-ori-${c.id}"><option value="fondo">Fondo</option><option value="banco">Banco</option><option value="efectivo">Efe</option></select>
+                        <select id="m-ori-${c.id}">
+                            <option value="fondo">Fondo</option>
+                            <option value="banco">Banco</option>
+                            <option value="efectivo">Efectivo</option>
+                        </select>
                         <button onclick="cargarMaterial(${c.id})" class="btn btn-red" style="width:100%; padding:5px; margin-top:3px;">Gastar</button>
                     </div>
                 </div>
