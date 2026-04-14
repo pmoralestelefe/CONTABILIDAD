@@ -28,10 +28,14 @@ const app = initializeApp(firebaseConfig);
 const db_firebase = getDatabase(app);
 const dbRef = ref(db_firebase, 'contabilidad');
 
+// NUEVAS VARIABLES PARA CONTROLAR EL HISTORIAL
+let masterDB = {}; 
+let periodoSeleccionado = ""; 
+
 let db = {
     cajas: { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 },
     retiros: { pablo: 0, fer: 0 },
-    gastosPubli: 0, // Nueva propiedad para Publicidad/Otros
+    gastosPubli: 0, 
     clientes: [],
     historialRetiros: [], 
     periodo: ""
@@ -48,21 +52,95 @@ document.addEventListener("DOMContentLoaded", () => {
 onValue(dbRef, (snapshot) => {
     const data = snapshot.val();
     if (data) { 
-        db = data;
-        if(!db.gastosPubli) db.gastosPubli = 0; // Aseguramos que exista
-        if(!db.historialRetiros) db.historialRetiros = [];
-
-        if (db.periodo) {
-            const el = document.getElementById('periodo-actual');
-            if(el) el.value = db.periodo;
+        // MIGRACIÓN AUTOMÁTICA DEL FORMATO VIEJO AL NUEVO SISTEMA HISTÓRICO
+        if (data.cajas && !data.meses) {
+            const p = data.periodo || new Date().toISOString().slice(0,7);
+            masterDB = {
+                periodoActual: p,
+                meses: {}
+            };
+            masterDB.meses[p] = data;
+            delete masterDB.meses[p].periodo; // Limpieza visual del objeto
+            set(dbRef, masterDB); 
+            return; // Cortamos acá, Firebase volverá a disparar onValue con el formato correcto
         }
-        render();
+
+        masterDB = data;
+        if(!masterDB.meses) masterDB.meses = {};
+
+        periodoSeleccionado = masterDB.periodoActual || new Date().toISOString().slice(0,7);
+        
+        const elPeriodo = document.getElementById('periodo-actual');
+        if (elPeriodo && elPeriodo.value !== periodoSeleccionado) {
+            elPeriodo.value = periodoSeleccionado;
+        }
+
+        cargarMes(periodoSeleccionado);
     }
 });
 
-function actualizar() { set(dbRef, db); }
+// NUEVA FUNCIÓN QUE ADMINISTRA LA HERENCIA O RECUPERACIÓN DEL MES
+function cargarMes(mes) {
+    if (!masterDB.meses) masterDB.meses = {};
 
-// 4. FUNCIONES DE LA APP
+    // SI EL MES NO EXISTE, LO CREAMOS HEREDANDO DEL MES ANTERIOR DISPONIBLE
+    if (!masterDB.meses[mes]) {
+        const mesesExistentes = Object.keys(masterDB.meses).sort();
+        let mesAnterior = null;
+        for(let i = mesesExistentes.length - 1; i >= 0; i--) {
+            if(mesesExistentes[i] < mes) {
+                mesAnterior = mesesExistentes[i];
+                break;
+            }
+        }
+
+        let cajasHeredadas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
+        let clientesHeredados = [];
+
+        if (mesAnterior && masterDB.meses[mesAnterior]) {
+            const dbAnt = masterDB.meses[mesAnterior];
+            // Heredar saldos de cajas (copia profunda para no vincular datos del mes pasado)
+            cajasHeredadas = JSON.parse(JSON.stringify(dbAnt.cajas || cajasHeredadas));
+            
+            // Heredar SOLO obras activas (clientes no terminados) con sus deudas y pagos intactos
+            clientesHeredados = (dbAnt.clientes || []).filter(c => !c.terminado).map(c => JSON.parse(JSON.stringify(c)));
+        }
+
+        masterDB.meses[mes] = {
+            cajas: cajasHeredadas,
+            retiros: { pablo: 0, fer: 0 }, // Reiniciar a 0
+            gastosPubli: 0,                // Reiniciar a 0
+            clientes: clientesHeredados,
+            historialRetiros: []           // Reiniciar historial del mes
+        };
+
+        masterDB.periodoActual = mes;
+        set(dbRef, masterDB);
+        return; // Cortamos acá, el guardado volverá a llamar a onValue
+    }
+
+    // SI EL MES YA EXISTE, LO CARGAMOS EXACTAMENTE COMO HABÍA QUEDADO
+    db = masterDB.meses[mes];
+    db.periodo = mes; 
+
+    // Aseguramos estructura básica para evitar errores de renderizado
+    if(!db.cajas) db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
+    if(!db.retiros) db.retiros = { pablo: 0, fer: 0 };
+    if(!db.gastosPubli) db.gastosPubli = 0;
+    if(!db.historialRetiros) db.historialRetiros = [];
+    if(!db.clientes) db.clientes = [];
+
+    render();
+}
+
+function actualizar() { 
+    if (!periodoSeleccionado) return;
+    masterDB.meses[periodoSeleccionado] = db;
+    masterDB.periodoActual = periodoSeleccionado;
+    set(dbRef, masterDB); 
+}
+
+// 4. FUNCIONES DE LA APP (Lógica Intacta)
 window.verTab = function(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     
@@ -77,17 +155,17 @@ window.verTab = function(id) {
 window.cambiarPeriodo = function() {
     const nuevoPeriodo = document.getElementById('periodo-actual').value;
     if (nuevoPeriodo) {
-        db.periodo = nuevoPeriodo;
-        actualizar(); 
+        masterDB.periodoActual = nuevoPeriodo;
+        set(dbRef, masterDB); // Al actualizar el periodo actual, onValue se encarga de cambiar de mes
     }
 };
 
 window.resetMes = function() {
-    if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0, se borrarán retiros y clientes finalizados. Solo quedarán obras activas con deuda.")) return;
+    if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0, se borrarán retiros y clientes finalizados del mes actual. Solo quedarán obras activas con deuda.")) return;
     
     db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
     db.retiros = { pablo: 0, fer: 0 };
-    db.gastosPubli = 0; // Limpiamos la publicidad del mes
+    db.gastosPubli = 0; 
     db.historialRetiros = []; 
 
     db.clientes = (db.clientes || []).filter(c => {
@@ -161,7 +239,6 @@ window.cargarMaterial = function(id) {
     }
 };
 
-// NUEVA FUNCIÓN: Cargar Publicidad
 window.cargarGastoPublicidad = function() {
     const det = document.getElementById('publi-det').value || 'Publicidad/Otros';
     const m = parseFloat(document.getElementById('publi-monto').value);
@@ -183,7 +260,6 @@ window.cargarGastoPublicidad = function() {
     }
 };
 
-// NUEVA FUNCIÓN: Ajuste Manual de Saldo
 window.ajustarSaldo = function() {
     const m = parseFloat(document.getElementById('ajuste-monto').value);
     const caja = document.getElementById('ajuste-caja').value;
@@ -207,7 +283,6 @@ window.nuevoGastoGral = function() {
         db.historialRetiros.push({ tipo, monto, origen, fecha: new Date().toLocaleDateString() });
         db.cajas[origen] -= monto;
         
-        // MODIFICACIÓN: Feedback visual y limpieza del input
         document.getElementById('g-mon').value = "";
         alert(`Se cargó correctamente el movimiento de $${monto}`);
         
@@ -293,7 +368,6 @@ window.verDetalle = function(item) {
     verTab('detalle'); 
 };
 
-
 // 5. PDF Y RENDER
 window.exportarPDF = function() {
     const tmp = document.createElement('div');
@@ -351,7 +425,6 @@ function render() {
     document.getElementById('t-pablo').innerText = `$${db.retiros.pablo.toLocaleString()}`;
     document.getElementById('t-fer').innerText = `$${db.retiros.fer.toLocaleString()}`;
     
-    // Render de publicidad
     const elPubli = document.getElementById('t-publicidad');
     if(elPubli) elPubli.innerText = `$${(db.gastosPubli || 0).toLocaleString()}`;
 
@@ -368,7 +441,6 @@ function render() {
         const totalPagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         const deudaTotal = c.coti - totalPagado;
         
-        // MODIFICACIÓN: Cálculo de Ganancia
         const totalMateriales = (c.materiales || []).reduce((a, b) => a + b.costo, 0);
         const gananciaNeta = c.coti - totalMateriales;
         
@@ -438,7 +510,6 @@ window.calcEval = function() {
     const display = document.getElementById('calc-display');
     try {
         let expr = display.value.replace(/×/g, '*').replace(/÷/g, '/');
-        // Usamos Function en vez de eval directo para mayor seguridad en el parseo matematico
         if(/^[0-9+\-*/.() ]+$/.test(expr)){
             let res = Function('"use strict";return (' + expr + ')')();
             if(!Number.isInteger(res)) res = res.toFixed(2);
