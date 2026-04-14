@@ -32,7 +32,7 @@ let db = {
     cajas: { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 },
     retiros: { pablo: 0, fer: 0 },
     clientes: [],
-    historialRetiros: [], // Nuevo arreglo para guardar el detalle de Pablo y Fer
+    historialRetiros: [], 
     periodo: ""
 };
 
@@ -62,7 +62,6 @@ function actualizar() { set(dbRef, db); }
 window.verTab = function(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     
-    // Solo actualiza botones si no estamos en la pestaña interna de detalle
     if(id !== 'detalle') {
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         if(event && event.currentTarget) event.currentTarget.classList.add('active');
@@ -82,23 +81,15 @@ window.cambiarPeriodo = function() {
 window.resetMes = function() {
     if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0, se borrarán retiros y clientes finalizados. Solo quedarán obras activas con deuda.")) return;
     
-    const mesActual = db.periodo;
-    
-    // 1. Resetear todas las cajas a Cero
     db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
-
-    // 2. Reset de retiros de socios y su historial
     db.retiros = { pablo: 0, fer: 0 };
-    db.historialRetiros = []; // Limpiamos el listado de detalle al resetear el mes
+    db.historialRetiros = []; 
 
-    // 3. Filtrar clientes: se quedan solo los que NO terminaron
     db.clientes = (db.clientes || []).filter(c => {
         return !c.terminado; 
     }).map(c => {
-        // Calculamos cuánto nos deben al momento del reset y lo guardamos como base
         const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         c.deudaHeredada = c.coti - pagado;
-        // Limpiamos movimientos para el mes nuevo
         c.pagos = [];
         c.materiales = [];
         return c;
@@ -108,9 +99,19 @@ window.resetMes = function() {
     alert("Sistema reseteado a $0. Solo se conservan las obras en curso.");
 };
 
+// NUEVA FUNCIÓN: Sumar dinero inicial al banco
+window.agregarSaldoBanco = function() {
+    const monto = parseFloat(document.getElementById('ajuste-banco-monto').value);
+    if (monto) {
+        db.cajas.banco = (db.cajas.banco || 0) + monto;
+        actualizar();
+        document.getElementById('ajuste-banco-monto').value = "";
+    }
+};
+
 window.crearCliente = function() {
     const nom = document.getElementById('c-nom').value;
-    const tel = document.getElementById('c-tel').value; // Recuperamos el telefono
+    const tel = document.getElementById('c-tel').value; 
     const coti = parseFloat(document.getElementById('c-coti').value);
     if (nom && coti) {
         if(!db.clientes) db.clientes = [];
@@ -175,7 +176,6 @@ window.nuevoGastoGral = function() {
         if (tipo === 'Pablo') db.retiros.pablo += monto;
         else if (tipo === 'Fer') db.retiros.fer += monto;
         
-        // Guardamos el movimiento para el detalle (Aplica a retiros y gastos generales)
         db.historialRetiros.push({ tipo, monto, origen, fecha: new Date().toLocaleDateString() });
         
         db.cajas[origen] -= monto;
@@ -199,23 +199,16 @@ window.acreditarTarjeta = function() {
     }
 };
 
-// NUEVA FUNCIÓN: VER DETALLE DE MOVIMIENTOS
 window.verDetalle = function(item) {
     document.getElementById('titulo-detalle').innerText = `Movimientos: ${item}`;
     let html = '';
     
     if (['banco', 'efectivo', 'tarjetas'].includes(item)) {
-        // Buscar pagos ingresados por los clientes en esta caja
         const movs = [];
         (db.clientes || []).forEach(c => {
             (c.pagos || []).forEach(p => {
                 if (p.met === item) {
-                    movs.push({
-                        cliente: c.nom,
-                        tel: c.tel || 'Sin número',
-                        monto: p.monto,
-                        fecha: p.fecha
-                    });
+                    movs.push({ cliente: c.nom, tel: c.tel || 'Sin número', monto: p.monto, fecha: p.fecha });
                 }
             });
         });
@@ -237,7 +230,6 @@ window.verDetalle = function(item) {
             `).join('');
         }
     } else if (['pablo', 'fer'].includes(item)) {
-        // Filtrar retiros del historial
         const nombreCapitalizado = item.charAt(0).toUpperCase() + item.slice(1);
         const movs = (db.historialRetiros || []).filter(h => h.tipo === nombreCapitalizado);
         
@@ -260,9 +252,77 @@ window.verDetalle = function(item) {
     }
     
     document.getElementById('lista-detalle').innerHTML = html;
-    verTab('detalle'); // Llama a la pestaña oculta
+    verTab('detalle'); 
 };
 
+
+// NUEVAS FUNCIONES: Edición de Cliente y Pagos
+window.abrirModalEditar = function(id) {
+    const cli = db.clientes.find(c => c.id === id);
+    if(!cli) return;
+    
+    document.getElementById('edit-id').value = cli.id;
+    document.getElementById('edit-nom').value = cli.nom;
+    document.getElementById('edit-tel').value = cli.tel || '';
+    document.getElementById('edit-coti').value = cli.coti;
+    
+    renderListaPagosEditar(cli);
+    document.getElementById('modal-editar').style.display = 'flex';
+};
+
+window.cerrarModalEditar = function() {
+    document.getElementById('modal-editar').style.display = 'none';
+};
+
+function renderListaPagosEditar(cli) {
+    const cont = document.getElementById('edit-lista-pagos');
+    if (!cli.pagos || cli.pagos.length === 0) {
+        cont.innerHTML = '<p style="color:#94a3b8; margin:0;">No hay pagos registrados.</p>';
+        return;
+    }
+    
+    cont.innerHTML = cli.pagos.map((p, index) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding:8px 0;">
+            <span>$${p.monto.toLocaleString()} (${p.met})</span>
+            <button onclick="borrarPago(${cli.id}, ${index})" style="background:var(--red); border:none; color:white; border-radius:4px; padding:4px 10px; cursor:pointer; font-weight:bold;">X</button>
+        </div>
+    `).join('');
+}
+
+window.borrarPago = function(clienteId, pagoIndex) {
+    if(!confirm("¿Seguro que quieres borrar este pago? El dinero se restará de la caja correspondiente.")) return;
+    
+    const cli = db.clientes.find(c => c.id === clienteId);
+    if(!cli || !cli.pagos) return;
+    
+    const pago = cli.pagos[pagoIndex];
+    db.cajas[pago.met] -= pago.monto; // Restamos de la caja
+    cli.pagos.splice(pagoIndex, 1);   // Borramos el pago de la lista
+    
+    actualizar();
+    renderListaPagosEditar(cli); // Recargamos la lista visual en el modal
+};
+
+window.guardarCambiosCliente = function() {
+    const id = parseInt(document.getElementById('edit-id').value);
+    const cli = db.clientes.find(c => c.id === id);
+    if(cli) {
+        cli.nom = document.getElementById('edit-nom').value;
+        cli.tel = document.getElementById('edit-tel').value;
+        cli.coti = parseFloat(document.getElementById('edit-coti').value) || 0;
+        actualizar();
+        cerrarModalEditar();
+    }
+};
+
+window.borrarObraCompleta = function() {
+    if(!confirm("⚠️ ATENCIÓN: ¿Estás seguro de borrar toda la obra? Esta acción no se puede deshacer.\n\nNOTA: Si borras la obra completa, los pagos que ya ingresaron a las cajas NO se restarán automáticamente. Si te equivocaste y necesitas sacar plata de una caja, cancela esto y usa la 'X' en los pagos primero.")) return;
+    
+    const id = parseInt(document.getElementById('edit-id').value);
+    db.clientes = db.clientes.filter(c => c.id !== id);
+    actualizar();
+    cerrarModalEditar();
+};
 
 // 5. PDF Y RENDER
 window.exportarPDF = function() {
@@ -357,9 +417,15 @@ function render() {
                         <button onclick="cargarMaterial(${c.id})" class="btn btn-red" style="width:100%; padding:5px; margin-top:3px;">Gastar</button>
                     </div>
                 </div>
-                <button onclick="toggleTerminado(${c.id})" style="width:100%; margin-top:10px; background:${c.terminado ? '#64748b' : '#22c55e'}; color:white; border:none; padding:5px; border-radius:5px;">
-                    ${c.terminado ? 'Reabrir Obra' : 'Finalizar Obra'}
-                </button>
+                
+                <div style="display:flex; gap: 5px; margin-top: 10px;">
+                    <button onclick="toggleTerminado(${c.id})" style="flex: 1; background:${c.terminado ? '#64748b' : '#22c55e'}; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold;">
+                        ${c.terminado ? 'Reabrir Obra' : 'Finalizar Obra'}
+                    </button>
+                    <button onclick="abrirModalEditar(${c.id})" style="background:#f59e0b; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold;" title="Editar / Corregir Obra">
+                        ✏️ Editar
+                    </button>
+                </div>
             </div>`;
     }).join('');
 }
