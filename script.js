@@ -206,6 +206,11 @@ window.nuevoGastoGral = function() {
         
         db.historialRetiros.push({ tipo, monto, origen, fecha: new Date().toLocaleDateString() });
         db.cajas[origen] -= monto;
+        
+        // MODIFICACIÓN: Feedback visual y limpieza del input
+        document.getElementById('g-mon').value = "";
+        alert(`Se cargó correctamente el movimiento de $${monto}`);
+        
         actualizar();
     }
 };
@@ -362,6 +367,11 @@ function render() {
     }).map(c => {
         const totalPagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         const deudaTotal = c.coti - totalPagado;
+        
+        // MODIFICACIÓN: Cálculo de Ganancia
+        const totalMateriales = (c.materiales || []).reduce((a, b) => a + b.costo, 0);
+        const gananciaNeta = c.coti - totalMateriales;
+        
         const listaMat = (c.materiales || []).map(m => `<li style="font-size:11px;">${m.det}: $${m.costo.toLocaleString()}</li>`).join('');
         
         return `
@@ -370,8 +380,11 @@ function render() {
                     <h3 style="margin:0;">${c.nom}</h3>
                     <input type="date" value="${c.fechaFinalizado || ''}" onchange="guardarFechaFin(${c.id}, this.value)" style="width:auto; padding:2px;">
                 </div>
-                <p style="margin:5px 0;">Deuda: <strong style="color:var(--red);">$${deudaTotal.toLocaleString()}</strong></p>
-                <div style="background:rgba(0,0,0,0.1); padding:5px; border-radius:5px; margin-bottom:10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <p style="margin:0;">Deuda: <strong style="color:var(--red);">$${deudaTotal.toLocaleString()}</strong></p>
+                    <p style="margin:0;">Ganancia: <strong style="color:#22c55e;">$${gananciaNeta.toLocaleString()}</strong></p>
+                </div>
+                <div style="background:rgba(0,0,0,0.1); padding:5px; border-radius:5px; margin-bottom:10px; margin-top: 10px;">
                     <ul style="margin:0; padding-left:15px;">${listaMat || '<li style="font-size:10px;">Sin gastos</li>'}</ul>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
@@ -397,3 +410,43 @@ function render() {
             </div>`;
     }).join('');
 }
+
+// 6. FUNCIONES DE CALCULADORA FLOTANTE
+window.toggleCalculadora = function() {
+    const calc = document.getElementById('calculadora-modal');
+    const btn = document.getElementById('btn-abrir-calc');
+    if (calc.style.display === 'none') {
+        calc.style.display = 'block';
+        btn.style.display = 'none';
+    } else {
+        calc.style.display = 'none';
+        btn.style.display = 'flex';
+    }
+};
+
+window.calcInput = function(val) {
+    const display = document.getElementById('calc-display');
+    if (display.value === "Error") display.value = "";
+    display.value += val;
+};
+
+window.calcClear = function() {
+    document.getElementById('calc-display').value = "";
+};
+
+window.calcEval = function() {
+    const display = document.getElementById('calc-display');
+    try {
+        let expr = display.value.replace(/×/g, '*').replace(/÷/g, '/');
+        // Usamos Function en vez de eval directo para mayor seguridad en el parseo matematico
+        if(/^[0-9+\-*/.() ]+$/.test(expr)){
+            let res = Function('"use strict";return (' + expr + ')')();
+            if(!Number.isInteger(res)) res = res.toFixed(2);
+            display.value = res;
+        } else {
+            display.value = "Error";
+        }
+    } catch(e) {
+        display.value = "Error";
+    }
+};
