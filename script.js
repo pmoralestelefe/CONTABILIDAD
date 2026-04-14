@@ -22,20 +22,24 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+// SE AGREGÓ 'get' PARA PODER LEER EL MES ANTERIOR
+import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
 const db_firebase = getDatabase(app);
-const dbRef = ref(db_firebase, 'contabilidad');
 
 let db = {
     cajas: { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 },
     retiros: { pablo: 0, fer: 0 },
-    gastosPubli: 0, // Nueva propiedad para Publicidad/Otros
+    gastosPubli: 0, 
     clientes: [],
     historialRetiros: [], 
     periodo: ""
 };
+
+// VARIABLES GLOBALES PARA MANEJAR EL MES ACTIVO
+let currentMes = "2026-04"; // Arranca por defecto en Abril 2026
+let unsubscribe = null; // Para poder cambiar de mes sin cruzar datos
 
 // 3. INICIO Y SINCRONIZACIÓN
 document.addEventListener("DOMContentLoaded", () => {
@@ -43,24 +47,95 @@ document.addEventListener("DOMContentLoaded", () => {
         const b = document.getElementById('bloqueo-seguridad');
         if(b) b.style.display = 'none';
     }
+
+    // Cargar el último mes que el usuario vio, o por defecto arranca en Abril 2026
+    currentMes = localStorage.getItem('ultimoMesPAC') || "2026-04";
+    const el = document.getElementById('periodo-actual');
+    if (el) el.value = currentMes;
+    
+    // Iniciar la escucha de datos para el mes correspondiente
+    escucharMes(currentMes);
 });
 
-onValue(dbRef, (snapshot) => {
-    const data = snapshot.val();
-    if (data) { 
-        db = data;
-        if(!db.gastosPubli) db.gastosPubli = 0; // Aseguramos que exista
-        if(!db.historialRetiros) db.historialRetiros = [];
-
-        if (db.periodo) {
-            const el = document.getElementById('periodo-actual');
-            if(el) el.value = db.periodo;
-        }
-        render();
+// FUNCIÓN PARA OBTENER EXACTAMENTE EL MES ANTERIOR AL QUE SE CREA
+function getMesAnterior(mes) {
+    const [y, m] = mes.split('-');
+    let year = parseInt(y);
+    let month = parseInt(m);
+    month -= 1;
+    if (month === 0) {
+        month = 12;
+        year -= 1;
     }
-});
+    return `${year}-${month.toString().padStart(2, '0')}`;
+}
 
-function actualizar() { set(dbRef, db); }
+// FUNCIÓN QUE ESCUCHA LOS CAMBIOS DEL MES SELECCIONADO
+function escucharMes(mes) {
+    if (unsubscribe) unsubscribe(); // Deja de escuchar el mes viejo
+    
+    const mesRef = ref(db_firebase, `contabilidad/meses/${mes}`);
+    unsubscribe = onValue(mesRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) { 
+            db = data;
+            if(!db.gastosPubli) db.gastosPubli = 0; 
+            if(!db.historialRetiros) db.historialRetiros = [];
+            if(!db.periodo) db.periodo = mes;
+
+            const el = document.getElementById('periodo-actual');
+            if(el && el.value !== mes) el.value = mes;
+            
+            render();
+        } else {
+            // Si el mes NO existe en Firebase, lo creamos heredando lo del mes pasado
+            inicializarNuevoMes(mes);
+        }
+    });
+}
+
+// FUNCIÓN QUE CREA UN MES NUEVO Y HEREDA SALDOS Y OBRAS
+async function inicializarNuevoMes(mes) {
+    const mesAnterior = getMesAnterior(mes);
+    const prevRef = ref(db_firebase, `contabilidad/meses/${mesAnterior}`);
+    const snapshot = await get(prevRef);
+    let oldData = snapshot.val();
+
+    let newData = {
+        cajas: { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 },
+        retiros: { pablo: 0, fer: 0 }, // QUEDAN EN 0
+        gastosPubli: 0, // QUEDAN EN 0
+        clientes: [],
+        historialRetiros: [], // SE LIMPIA EL HISTORIAL DE RETIROS
+        periodo: mes
+    };
+
+    if (oldData) {
+        // HEREDAR CAJAS EXACTAMENTE COMO QUEDARON
+        if (oldData.cajas) newData.cajas = { ...oldData.cajas };
+        
+        // HEREDAR SOLO LOS CLIENTES QUE NO ESTÁN TERMINADOS
+        if (oldData.clientes) {
+            newData.clientes = oldData.clientes.filter(c => !c.terminado).map(c => {
+                let newC = JSON.parse(JSON.stringify(c)); // Copia profunda para no alterar datos viejos
+                const pagado = (newC.pagos || []).reduce((a, b) => a + b.monto, 0);
+                newC.deudaHeredada = newC.coti - pagado;
+                newC.pagos = [];
+                newC.materiales = [];
+                return newC;
+            });
+        }
+    }
+
+    // Guardar el nuevo mes. Esto disparará automáticamente onValue() de arriba.
+    await set(ref(db_firebase, `contabilidad/meses/${mes}`), newData);
+}
+
+// NUEVO ACTUALIZAR QUE GUARDA EN EL NODO DEL MES ACTUAL
+function actualizar() { 
+    set(ref(db_firebase, `contabilidad/meses/${currentMes}`), db); 
+}
+
 
 // 4. FUNCIONES DE LA APP
 window.verTab = function(id) {
@@ -76,9 +151,10 @@ window.verTab = function(id) {
 
 window.cambiarPeriodo = function() {
     const nuevoPeriodo = document.getElementById('periodo-actual').value;
-    if (nuevoPeriodo) {
-        db.periodo = nuevoPeriodo;
-        actualizar(); 
+    if (nuevoPeriodo && nuevoPeriodo !== currentMes) {
+        currentMes = nuevoPeriodo;
+        localStorage.setItem('ultimoMesPAC', currentMes);
+        escucharMes(currentMes);
     }
 };
 
@@ -87,7 +163,7 @@ window.resetMes = function() {
     
     db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
     db.retiros = { pablo: 0, fer: 0 };
-    db.gastosPubli = 0; // Limpiamos la publicidad del mes
+    db.gastosPubli = 0; 
     db.historialRetiros = []; 
 
     db.clientes = (db.clientes || []).filter(c => {
@@ -161,7 +237,6 @@ window.cargarMaterial = function(id) {
     }
 };
 
-// NUEVA FUNCIÓN: Cargar Publicidad
 window.cargarGastoPublicidad = function() {
     const det = document.getElementById('publi-det').value || 'Publicidad/Otros';
     const m = parseFloat(document.getElementById('publi-monto').value);
@@ -183,7 +258,6 @@ window.cargarGastoPublicidad = function() {
     }
 };
 
-// NUEVA FUNCIÓN: Ajuste Manual de Saldo
 window.ajustarSaldo = function() {
     const m = parseFloat(document.getElementById('ajuste-monto').value);
     const caja = document.getElementById('ajuste-caja').value;
@@ -207,7 +281,6 @@ window.nuevoGastoGral = function() {
         db.historialRetiros.push({ tipo, monto, origen, fecha: new Date().toLocaleDateString() });
         db.cajas[origen] -= monto;
         
-        // MODIFICACIÓN: Feedback visual y limpieza del input
         document.getElementById('g-mon').value = "";
         alert(`Se cargó correctamente el movimiento de $${monto}`);
         
@@ -351,7 +424,6 @@ function render() {
     document.getElementById('t-pablo').innerText = `$${db.retiros.pablo.toLocaleString()}`;
     document.getElementById('t-fer').innerText = `$${db.retiros.fer.toLocaleString()}`;
     
-    // Render de publicidad
     const elPubli = document.getElementById('t-publicidad');
     if(elPubli) elPubli.innerText = `$${(db.gastosPubli || 0).toLocaleString()}`;
 
@@ -368,7 +440,6 @@ function render() {
         const totalPagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         const deudaTotal = c.coti - totalPagado;
         
-        // MODIFICACIÓN: Cálculo de Ganancia
         const totalMateriales = (c.materiales || []).reduce((a, b) => a + b.costo, 0);
         const gananciaNeta = c.coti - totalMateriales;
         
@@ -399,54 +470,4 @@ function render() {
                         <select id="m-ori-${c.id}">
                             <option value="fondo">Fondo</option>
                             <option value="banco">Banco</option>
-                            <option value="efectivo">Efectivo</option>
-                        </select>
-                        <button onclick="cargarMaterial(${c.id})" class="btn btn-red" style="width:100%; padding:5px; margin-top:3px;">Gastar</button>
-                    </div>
-                </div>
-                <button onclick="toggleTerminado(${c.id})" style="width:100%; margin-top:10px; background:${c.terminado ? '#64748b' : '#22c55e'}; color:white; border:none; padding:5px; border-radius:5px;">
-                    ${c.terminado ? 'Reabrir Obra' : 'Finalizar Obra'}
-                </button>
-            </div>`;
-    }).join('');
-}
-
-// 6. FUNCIONES DE CALCULADORA FLOTANTE
-window.toggleCalculadora = function() {
-    const calc = document.getElementById('calculadora-modal');
-    const btn = document.getElementById('btn-abrir-calc');
-    if (calc.style.display === 'none') {
-        calc.style.display = 'block';
-        btn.style.display = 'none';
-    } else {
-        calc.style.display = 'none';
-        btn.style.display = 'flex';
-    }
-};
-
-window.calcInput = function(val) {
-    const display = document.getElementById('calc-display');
-    if (display.value === "Error") display.value = "";
-    display.value += val;
-};
-
-window.calcClear = function() {
-    document.getElementById('calc-display').value = "";
-};
-
-window.calcEval = function() {
-    const display = document.getElementById('calc-display');
-    try {
-        let expr = display.value.replace(/×/g, '*').replace(/÷/g, '/');
-        // Usamos Function en vez de eval directo para mayor seguridad en el parseo matematico
-        if(/^[0-9+\-*/.() ]+$/.test(expr)){
-            let res = Function('"use strict";return (' + expr + ')')();
-            if(!Number.isInteger(res)) res = res.toFixed(2);
-            display.value = res;
-        } else {
-            display.value = "Error";
-        }
-    } catch(e) {
-        display.value = "Error";
-    }
-};
+                            <option
