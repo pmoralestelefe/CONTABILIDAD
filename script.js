@@ -22,11 +22,15 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-// SE AGREGÓ 'get' PARA PODER LEER EL MES ANTERIOR
-import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
 const db_firebase = getDatabase(app);
+const dbRef = ref(db_firebase, 'contabilidad');
+
+// NUEVAS VARIABLES PARA CONTROLAR EL HISTORIAL
+let masterDB = {}; 
+let periodoSeleccionado = ""; 
 
 let db = {
     cajas: { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 },
@@ -37,107 +41,106 @@ let db = {
     periodo: ""
 };
 
-// VARIABLES GLOBALES PARA MANEJAR EL MES ACTIVO
-let currentMes = "2026-04"; // Arranca por defecto en Abril 2026
-let unsubscribe = null; // Para poder cambiar de mes sin cruzar datos
-
 // 3. INICIO Y SINCRONIZACIÓN
 document.addEventListener("DOMContentLoaded", () => {
     if (sessionStorage.getItem('acceso_pac') === 'ok') {
         const b = document.getElementById('bloqueo-seguridad');
         if(b) b.style.display = 'none';
     }
-
-    // Cargar el último mes que el usuario vio, o por defecto arranca en Abril 2026
-    currentMes = localStorage.getItem('ultimoMesPAC') || "2026-04";
-    const el = document.getElementById('periodo-actual');
-    if (el) el.value = currentMes;
-    
-    // Iniciar la escucha de datos para el mes correspondiente
-    escucharMes(currentMes);
 });
 
-// FUNCIÓN PARA OBTENER EXACTAMENTE EL MES ANTERIOR AL QUE SE CREA
-function getMesAnterior(mes) {
-    const [y, m] = mes.split('-');
-    let year = parseInt(y);
-    let month = parseInt(m);
-    month -= 1;
-    if (month === 0) {
-        month = 12;
-        year -= 1;
-    }
-    return `${year}-${month.toString().padStart(2, '0')}`;
-}
-
-// FUNCIÓN QUE ESCUCHA LOS CAMBIOS DEL MES SELECCIONADO
-function escucharMes(mes) {
-    if (unsubscribe) unsubscribe(); // Deja de escuchar el mes viejo
-    
-    const mesRef = ref(db_firebase, `contabilidad/meses/${mes}`);
-    unsubscribe = onValue(mesRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) { 
-            db = data;
-            if(!db.gastosPubli) db.gastosPubli = 0; 
-            if(!db.historialRetiros) db.historialRetiros = [];
-            if(!db.periodo) db.periodo = mes;
-
-            const el = document.getElementById('periodo-actual');
-            if(el && el.value !== mes) el.value = mes;
-            
-            render();
-        } else {
-            // Si el mes NO existe en Firebase, lo creamos heredando lo del mes pasado
-            inicializarNuevoMes(mes);
+onValue(dbRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data) { 
+        // MIGRACIÓN AUTOMÁTICA DEL FORMATO VIEJO AL NUEVO SISTEMA HISTÓRICO
+        if (data.cajas && !data.meses) {
+            const p = data.periodo || new Date().toISOString().slice(0,7);
+            masterDB = {
+                periodoActual: p,
+                meses: {}
+            };
+            masterDB.meses[p] = data;
+            delete masterDB.meses[p].periodo; // Limpieza visual del objeto
+            set(dbRef, masterDB); 
+            return; // Cortamos acá, Firebase volverá a disparar onValue con el formato correcto
         }
-    });
-}
 
-// FUNCIÓN QUE CREA UN MES NUEVO Y HEREDA SALDOS Y OBRAS
-async function inicializarNuevoMes(mes) {
-    const mesAnterior = getMesAnterior(mes);
-    const prevRef = ref(db_firebase, `contabilidad/meses/${mesAnterior}`);
-    const snapshot = await get(prevRef);
-    let oldData = snapshot.val();
+        masterDB = data;
+        if(!masterDB.meses) masterDB.meses = {};
 
-    let newData = {
-        cajas: { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 },
-        retiros: { pablo: 0, fer: 0 }, // QUEDAN EN 0
-        gastosPubli: 0, // QUEDAN EN 0
-        clientes: [],
-        historialRetiros: [], // SE LIMPIA EL HISTORIAL DE RETIROS
-        periodo: mes
-    };
-
-    if (oldData) {
-        // HEREDAR CAJAS EXACTAMENTE COMO QUEDARON
-        if (oldData.cajas) newData.cajas = { ...oldData.cajas };
+        periodoSeleccionado = masterDB.periodoActual || new Date().toISOString().slice(0,7);
         
-        // HEREDAR SOLO LOS CLIENTES QUE NO ESTÁN TERMINADOS
-        if (oldData.clientes) {
-            newData.clientes = oldData.clientes.filter(c => !c.terminado).map(c => {
-                let newC = JSON.parse(JSON.stringify(c)); // Copia profunda para no alterar datos viejos
-                const pagado = (newC.pagos || []).reduce((a, b) => a + b.monto, 0);
-                newC.deudaHeredada = newC.coti - pagado;
-                newC.pagos = [];
-                newC.materiales = [];
-                return newC;
-            });
+        const elPeriodo = document.getElementById('periodo-actual');
+        if (elPeriodo && elPeriodo.value !== periodoSeleccionado) {
+            elPeriodo.value = periodoSeleccionado;
         }
+
+        cargarMes(periodoSeleccionado);
+    }
+});
+
+// NUEVA FUNCIÓN QUE ADMINISTRA LA HERENCIA O RECUPERACIÓN DEL MES
+function cargarMes(mes) {
+    if (!masterDB.meses) masterDB.meses = {};
+
+    // SI EL MES NO EXISTE, LO CREAMOS HEREDANDO DEL MES ANTERIOR DISPONIBLE
+    if (!masterDB.meses[mes]) {
+        const mesesExistentes = Object.keys(masterDB.meses).sort();
+        let mesAnterior = null;
+        for(let i = mesesExistentes.length - 1; i >= 0; i--) {
+            if(mesesExistentes[i] < mes) {
+                mesAnterior = mesesExistentes[i];
+                break;
+            }
+        }
+
+        let cajasHeredadas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
+        let clientesHeredados = [];
+
+        if (mesAnterior && masterDB.meses[mesAnterior]) {
+            const dbAnt = masterDB.meses[mesAnterior];
+            // Heredar saldos de cajas (copia profunda para no vincular datos del mes pasado)
+            cajasHeredadas = JSON.parse(JSON.stringify(dbAnt.cajas || cajasHeredadas));
+            
+            // Heredar SOLO obras activas (clientes no terminados) con sus deudas y pagos intactos
+            clientesHeredados = (dbAnt.clientes || []).filter(c => !c.terminado).map(c => JSON.parse(JSON.stringify(c)));
+        }
+
+        masterDB.meses[mes] = {
+            cajas: cajasHeredadas,
+            retiros: { pablo: 0, fer: 0 }, // Reiniciar a 0
+            gastosPubli: 0,                // Reiniciar a 0
+            clientes: clientesHeredados,
+            historialRetiros: []           // Reiniciar historial del mes
+        };
+
+        masterDB.periodoActual = mes;
+        set(dbRef, masterDB);
+        return; // Cortamos acá, el guardado volverá a llamar a onValue
     }
 
-    // Guardar el nuevo mes. Esto disparará automáticamente onValue() de arriba.
-    await set(ref(db_firebase, `contabilidad/meses/${mes}`), newData);
+    // SI EL MES YA EXISTE, LO CARGAMOS EXACTAMENTE COMO HABÍA QUEDADO
+    db = masterDB.meses[mes];
+    db.periodo = mes; 
+
+    // Aseguramos estructura básica para evitar errores de renderizado
+    if(!db.cajas) db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
+    if(!db.retiros) db.retiros = { pablo: 0, fer: 0 };
+    if(!db.gastosPubli) db.gastosPubli = 0;
+    if(!db.historialRetiros) db.historialRetiros = [];
+    if(!db.clientes) db.clientes = [];
+
+    render();
 }
 
-// NUEVO ACTUALIZAR QUE GUARDA EN EL NODO DEL MES ACTUAL
 function actualizar() { 
-    set(ref(db_firebase, `contabilidad/meses/${currentMes}`), db); 
+    if (!periodoSeleccionado) return;
+    masterDB.meses[periodoSeleccionado] = db;
+    masterDB.periodoActual = periodoSeleccionado;
+    set(dbRef, masterDB); 
 }
 
-
-// 4. FUNCIONES DE LA APP
+// 4. FUNCIONES DE LA APP (Lógica Intacta)
 window.verTab = function(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     
@@ -151,15 +154,14 @@ window.verTab = function(id) {
 
 window.cambiarPeriodo = function() {
     const nuevoPeriodo = document.getElementById('periodo-actual').value;
-    if (nuevoPeriodo && nuevoPeriodo !== currentMes) {
-        currentMes = nuevoPeriodo;
-        localStorage.setItem('ultimoMesPAC', currentMes);
-        escucharMes(currentMes);
+    if (nuevoPeriodo) {
+        masterDB.periodoActual = nuevoPeriodo;
+        set(dbRef, masterDB); // Al actualizar el periodo actual, onValue se encarga de cambiar de mes
     }
 };
 
 window.resetMes = function() {
-    if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0, se borrarán retiros y clientes finalizados. Solo quedarán obras activas con deuda.")) return;
+    if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0, se borrarán retiros y clientes finalizados del mes actual. Solo quedarán obras activas con deuda.")) return;
     
     db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
     db.retiros = { pablo: 0, fer: 0 };
@@ -366,7 +368,6 @@ window.verDetalle = function(item) {
     verTab('detalle'); 
 };
 
-
 // 5. PDF Y RENDER
 window.exportarPDF = function() {
     const tmp = document.createElement('div');
@@ -470,4 +471,53 @@ function render() {
                         <select id="m-ori-${c.id}">
                             <option value="fondo">Fondo</option>
                             <option value="banco">Banco</option>
-                            <option
+                            <option value="efectivo">Efectivo</option>
+                        </select>
+                        <button onclick="cargarMaterial(${c.id})" class="btn btn-red" style="width:100%; padding:5px; margin-top:3px;">Gastar</button>
+                    </div>
+                </div>
+                <button onclick="toggleTerminado(${c.id})" style="width:100%; margin-top:10px; background:${c.terminado ? '#64748b' : '#22c55e'}; color:white; border:none; padding:5px; border-radius:5px;">
+                    ${c.terminado ? 'Reabrir Obra' : 'Finalizar Obra'}
+                </button>
+            </div>`;
+    }).join('');
+}
+
+// 6. FUNCIONES DE CALCULADORA FLOTANTE
+window.toggleCalculadora = function() {
+    const calc = document.getElementById('calculadora-modal');
+    const btn = document.getElementById('btn-abrir-calc');
+    if (calc.style.display === 'none') {
+        calc.style.display = 'block';
+        btn.style.display = 'none';
+    } else {
+        calc.style.display = 'none';
+        btn.style.display = 'flex';
+    }
+};
+
+window.calcInput = function(val) {
+    const display = document.getElementById('calc-display');
+    if (display.value === "Error") display.value = "";
+    display.value += val;
+};
+
+window.calcClear = function() {
+    document.getElementById('calc-display').value = "";
+};
+
+window.calcEval = function() {
+    const display = document.getElementById('calc-display');
+    try {
+        let expr = display.value.replace(/×/g, '*').replace(/÷/g, '/');
+        if(/^[0-9+\-*/.() ]+$/.test(expr)){
+            let res = Function('"use strict";return (' + expr + ')')();
+            if(!Number.isInteger(res)) res = res.toFixed(2);
+            display.value = res;
+        } else {
+            display.value = "Error";
+        }
+    } catch(e) {
+        display.value = "Error";
+    }
+};
