@@ -77,11 +77,9 @@
 
             <div class="seccion-form" style="border: 1px solid #334155;">
                 <h3>Traspasos y Acreditaciones</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                    <input type="number" id="trans-monto" placeholder="Monto Bruto $">
-                    <input type="number" id="trans-comision" placeholder="Comisión $ (Opcional)">
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <input type="number" id="trans-monto" placeholder="Monto Bruto $">
+                <input type="number" id="trans-comision" placeholder="Comisión/Descuento $ (Opcional)" style="margin-top: 5px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
                     <button onclick="transferirBancoFondo()" class="btn btn-blue" style="font-size: 11px;">Banco a Fondo</button>
                     <button onclick="acreditarTarjeta()" class="btn btn-blue" style="font-size: 11px; background: #8b5cf6;">Acreditar Tarjetas</button>
                 </div>
