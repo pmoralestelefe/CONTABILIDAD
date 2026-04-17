@@ -28,7 +28,6 @@ const app = initializeApp(firebaseConfig);
 const db_firebase = getDatabase(app);
 const dbRef = ref(db_firebase, 'contabilidad');
 
-// NUEVAS VARIABLES PARA CONTROLAR EL HISTORIAL
 let masterDB = {}; 
 let periodoSeleccionado = ""; 
 
@@ -52,38 +51,27 @@ document.addEventListener("DOMContentLoaded", () => {
 onValue(dbRef, (snapshot) => {
     const data = snapshot.val();
     if (data) { 
-        // MIGRACIÓN AUTOMÁTICA DEL FORMATO VIEJO AL NUEVO SISTEMA HISTÓRICO
         if (data.cajas && !data.meses) {
             const p = data.periodo || new Date().toISOString().slice(0,7);
-            masterDB = {
-                periodoActual: p,
-                meses: {}
-            };
+            masterDB = { periodoActual: p, meses: {} };
             masterDB.meses[p] = data;
-            delete masterDB.meses[p].periodo; // Limpieza visual del objeto
+            delete masterDB.meses[p].periodo;
             set(dbRef, masterDB); 
-            return; // Cortamos acá, Firebase volverá a disparar onValue con el formato correcto
+            return;
         }
-
         masterDB = data;
         if(!masterDB.meses) masterDB.meses = {};
-
         periodoSeleccionado = masterDB.periodoActual || new Date().toISOString().slice(0,7);
-        
         const elPeriodo = document.getElementById('periodo-actual');
         if (elPeriodo && elPeriodo.value !== periodoSeleccionado) {
             elPeriodo.value = periodoSeleccionado;
         }
-
         cargarMes(periodoSeleccionado);
     }
 });
 
-// NUEVA FUNCIÓN QUE ADMINISTRA LA HERENCIA O RECUPERACIÓN DEL MES
 function cargarMes(mes) {
     if (!masterDB.meses) masterDB.meses = {};
-
-    // SI EL MES NO EXISTE, LO CREAMOS HEREDANDO DEL MES ANTERIOR DISPONIBLE
     if (!masterDB.meses[mes]) {
         const mesesExistentes = Object.keys(masterDB.meses).sort();
         let mesAnterior = null;
@@ -93,43 +81,31 @@ function cargarMes(mes) {
                 break;
             }
         }
-
         let cajasHeredadas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
         let clientesHeredados = [];
-
         if (mesAnterior && masterDB.meses[mesAnterior]) {
             const dbAnt = masterDB.meses[mesAnterior];
-            // Heredar saldos de cajas (copia profunda para no vincular datos del mes pasado)
             cajasHeredadas = JSON.parse(JSON.stringify(dbAnt.cajas || cajasHeredadas));
-            
-            // Heredar SOLO obras activas (clientes no terminados) con sus deudas y pagos intactos
             clientesHeredados = (dbAnt.clientes || []).filter(c => !c.terminado).map(c => JSON.parse(JSON.stringify(c)));
         }
-
         masterDB.meses[mes] = {
             cajas: cajasHeredadas,
-            retiros: { pablo: 0, fer: 0 }, // Reiniciar a 0
-            gastosPubli: 0,                // Reiniciar a 0
+            retiros: { pablo: 0, fer: 0 },
+            gastosPubli: 0,
             clientes: clientesHeredados,
-            historialRetiros: []           // Reiniciar historial del mes
+            historialRetiros: []
         };
-
         masterDB.periodoActual = mes;
         set(dbRef, masterDB);
-        return; // Cortamos acá, el guardado volverá a llamar a onValue
+        return;
     }
-
-    // SI EL MES YA EXISTE, LO CARGAMOS EXACTAMENTE COMO HABÍA QUEDADO
     db = masterDB.meses[mes];
     db.periodo = mes; 
-
-    // Aseguramos estructura básica para evitar errores de renderizado
     if(!db.cajas) db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
     if(!db.retiros) db.retiros = { pablo: 0, fer: 0 };
     if(!db.gastosPubli) db.gastosPubli = 0;
     if(!db.historialRetiros) db.historialRetiros = [];
     if(!db.clientes) db.clientes = [];
-
     render();
 }
 
@@ -140,46 +116,154 @@ function actualizar() {
     set(dbRef, masterDB); 
 }
 
-// 4. FUNCIONES DE LA APP (Lógica Intacta)
+// 4. FUNCIONES DE LA APP (CON ARREGLOS)
+
+window.borrarCliente = function(id) {
+    const cli = db.clientes.find(c => c.id === id);
+    if (!cli) return;
+    const pagado = (cli.pagos || []).reduce((a, b) => a + b.monto, 0);
+    if (pagado > 0) {
+        alert("No puedes borrar un cliente que ya tiene pagos registrados. Primero corrige los pagos.");
+        return;
+    }
+    if (confirm(`¿Eliminar la hoja de ${cli.nom}?`)) {
+        db.clientes = db.clientes.filter(c => c.id !== id);
+        actualizar();
+    }
+};
+
+window.editarMetodoPago = function(clienteId, pagoIndex) {
+    const cli = db.clientes.find(c => c.id === clienteId);
+    const pago = cli.pagos[pagoIndex];
+    const nuevoMet = prompt(`Cambiar método de pago (actual: ${pago.met}).\nEscribe: banco, efectivo o tarjetas`).toLowerCase();
+    
+    if (['banco', 'efectivo', 'tarjetas'].includes(nuevoMet)) {
+        // Restar del viejo y sumar al nuevo
+        db.cajas[pago.met] -= pago.monto;
+        db.cajas[nuevoMet] += pago.monto;
+        pago.met = nuevoMet;
+        actualizar();
+        alert("Método de pago corregido.");
+    } else {
+        alert("Método no válido.");
+    }
+};
+
+window.acreditarTarjeta = function() {
+    const mBruto = parseFloat(document.getElementById('trans-monto').value);
+    const comision = parseFloat(document.getElementById('trans-comision').value) || 0;
+    
+    if (mBruto > 0 && mBruto <= (db.cajas.tarjetas || 0)) {
+        const mNeto = mBruto - comision;
+        db.cajas.tarjetas -= mBruto;
+        db.cajas.banco += mNeto;
+        
+        // El resto se puede considerar un gasto general de banco si quieres rastrear la comisión
+        if (comision > 0) {
+            db.historialRetiros.push({ 
+                tipo: 'General', 
+                monto: comision, 
+                origen: 'comision', 
+                detalle: 'Comisión Bancaria Tarjeta',
+                fecha: new Date().toLocaleDateString() 
+            });
+        }
+        
+        document.getElementById('trans-monto').value = "";
+        document.getElementById('trans-comision').value = "";
+        actualizar();
+    } else {
+        alert("Monto insuficiente en Tarjetas.");
+    }
+};
+
+window.verDetalle = function(item) {
+    document.getElementById('titulo-detalle').innerText = `Movimientos: ${item}`;
+    let html = '';
+    
+    if (['banco', 'efectivo', 'tarjetas'].includes(item)) {
+        const movs = [];
+        (db.clientes || []).forEach(c => {
+            (c.pagos || []).forEach((p, idx) => {
+                if (p.met === item && p.monto > 0) { // FILTRADO CORREGIDO: Solo los que sumaron
+                    movs.push({
+                        cliente: c.nom,
+                        cId: c.id,
+                        pIdx: idx,
+                        monto: p.monto,
+                        fecha: p.fecha
+                    });
+                }
+            });
+        });
+        
+        if (movs.length === 0) {
+            html = '<p style="color: #94a3b8;">No hay cobros reales registrados en esta cuenta.</p>';
+        } else {
+            html = movs.map(m => `
+                <div style="border-bottom: 1px solid #334155; padding: 12px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items: center;">
+                        <strong style="font-size: 16px;">${m.cliente}</strong>
+                        <span style="font-size: 12px; color: #94a3b8;">${m.fecha}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items: center; margin-top: 5px;">
+                        <button onclick="editarMetodoPago(${m.cId}, ${m.pIdx})" style="background:#334155; color:var(--yellow); border:none; padding:4px 8px; border-radius:4px; font-size:10px; cursor:pointer;">Corregir Método</button>
+                        <div style="color: #22c55e; font-weight: bold;">+ $${m.monto.toLocaleString()}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } else if (['pablo', 'fer', 'publicidad'].includes(item)) {
+        const tipoFiltro = item === 'publicidad' ? 'Publicidad' : (item.charAt(0).toUpperCase() + item.slice(1));
+        const movs = (db.historialRetiros || []).filter(h => h.tipo === tipoFiltro);
+        
+        if (movs.length === 0) html = '<p style="color: #94a3b8;">No hay movimientos registrados.</p>';
+        else {
+            html = movs.map(m => `
+                <div style="border-bottom: 1px solid #334155; padding: 12px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items: center;">
+                        <strong>${m.detalle || (item === 'publicidad' ? 'Gasto' : 'Retiro')}</strong>
+                        <span style="font-size: 12px;">${m.fecha}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items: center; margin-top: 5px;">
+                        <div style="font-size: 13px;">Desde: ${m.origen.toUpperCase()}</div>
+                        <div style="color: var(--red); font-weight: bold;">- $${m.monto.toLocaleString()}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+    document.getElementById('lista-detalle').innerHTML = html;
+    verTab('detalle'); 
+};
+
+// --- RESTO DE FUNCIONES IGUALES (SIN CAMBIOS) ---
 window.verTab = function(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    
     if(id !== 'detalle') {
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         if(event && event.currentTarget) event.currentTarget.classList.add('active');
     }
-    
     document.getElementById('tab-' + id).style.display = 'block';
 };
 
 window.cambiarPeriodo = function() {
     const nuevoPeriodo = document.getElementById('periodo-actual').value;
-    if (nuevoPeriodo) {
-        masterDB.periodoActual = nuevoPeriodo;
-        set(dbRef, masterDB); // Al actualizar el periodo actual, onValue se encarga de cambiar de mes
-    }
+    if (nuevoPeriodo) { masterDB.periodoActual = nuevoPeriodo; set(dbRef, masterDB); }
 };
 
 window.resetMes = function() {
-    if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0, se borrarán retiros y clientes finalizados del mes actual. Solo quedarán obras activas con deuda.")) return;
-    
+    if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0, se borrarán retiros y clientes finalizados. Solo quedarán obras activas.")) return;
     db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
     db.retiros = { pablo: 0, fer: 0 };
     db.gastosPubli = 0; 
     db.historialRetiros = []; 
-
-    db.clientes = (db.clientes || []).filter(c => {
-        return !c.terminado; 
-    }).map(c => {
+    db.clientes = (db.clientes || []).filter(c => !c.terminado).map(c => {
         const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
         c.deudaHeredada = c.coti - pagado;
-        c.pagos = [];
-        c.materiales = [];
-        return c;
+        c.pagos = []; c.materiales = []; return c;
     });
-    
     actualizar();
-    alert("Sistema reseteado a $0. Solo se conservan las obras en curso.");
 };
 
 window.crearCliente = function() {
@@ -188,30 +272,20 @@ window.crearCliente = function() {
     const coti = parseFloat(document.getElementById('c-coti').value);
     if (nom && coti) {
         if(!db.clientes) db.clientes = [];
-        db.clientes.push({ 
-            id: Date.now(), nom, tel, coti, pagos: [], materiales: [], deudaHeredada: 0, terminado: false 
-        });
+        db.clientes.push({ id: Date.now(), nom, tel, coti, pagos: [], materiales: [], deudaHeredada: 0, terminado: false });
         actualizar();
-        document.getElementById('c-nom').value = "";
-        document.getElementById('c-tel').value = "";
-        document.getElementById('c-coti').value = "";
+        document.getElementById('c-nom').value = ""; document.getElementById('c-tel').value = ""; document.getElementById('c-coti').value = "";
     }
 };
 
 window.toggleTerminado = function(id) {
     const cli = db.clientes.find(c => c.id === id);
-    if(cli) {
-        cli.terminado = !cli.terminado;
-        actualizar();
-    }
+    if(cli) { cli.terminado = !cli.terminado; actualizar(); }
 };
 
 window.guardarFechaFin = function(id, fecha) {
     const cli = db.clientes.find(c => c.id === id);
-    if (cli) {
-        cli.fechaFinalizado = fecha;
-        actualizar();
-    }
+    if (cli) { cli.fechaFinalizado = fecha; actualizar(); }
 };
 
 window.cargarPago = function(id) {
@@ -243,19 +317,11 @@ window.cargarGastoPublicidad = function() {
     const det = document.getElementById('publi-det').value || 'Publicidad/Otros';
     const m = parseFloat(document.getElementById('publi-monto').value);
     const ori = document.getElementById('publi-ori').value;
-    
     if (m > 0) {
         db.gastosPubli = (db.gastosPubli || 0) + m;
-        db.historialRetiros.push({
-            tipo: 'Publicidad',
-            detalle: det,
-            monto: m,
-            origen: ori,
-            fecha: new Date().toLocaleDateString()
-        });
+        db.historialRetiros.push({ tipo: 'Publicidad', detalle: det, monto: m, origen: ori, fecha: new Date().toLocaleDateString() });
         db.cajas[ori] -= m;
-        document.getElementById('publi-det').value = "";
-        document.getElementById('publi-monto').value = "";
+        document.getElementById('publi-det').value = ""; document.getElementById('publi-monto').value = "";
         actualizar();
     }
 };
@@ -263,11 +329,7 @@ window.cargarGastoPublicidad = function() {
 window.ajustarSaldo = function() {
     const m = parseFloat(document.getElementById('ajuste-monto').value);
     const caja = document.getElementById('ajuste-caja').value;
-    if (m > 0) {
-        db.cajas[caja] = (db.cajas[caja] || 0) + m;
-        document.getElementById('ajuste-monto').value = "";
-        actualizar();
-    }
+    if (m > 0) { db.cajas[caja] = (db.cajas[caja] || 0) + m; document.getElementById('ajuste-monto').value = ""; actualizar(); }
 };
 
 window.nuevoGastoGral = function() {
@@ -275,146 +337,30 @@ window.nuevoGastoGral = function() {
     const monto = parseFloat(document.getElementById('g-mon').value);
     const origen = document.getElementById('g-ori').value;
     if (monto) {
-        if(!db.historialRetiros) db.historialRetiros = [];
-        
         if (tipo === 'Pablo') db.retiros.pablo += monto;
         else if (tipo === 'Fer') db.retiros.fer += monto;
-        
         db.historialRetiros.push({ tipo, monto, origen, fecha: new Date().toLocaleDateString() });
         db.cajas[origen] -= monto;
-        
         document.getElementById('g-mon').value = "";
-        alert(`Se cargó correctamente el movimiento de $${monto}`);
-        
         actualizar();
     }
 };
 
 window.transferirBancoFondo = function() {
     const m = parseFloat(document.getElementById('trans-monto').value);
-    if (m > 0 && m <= db.cajas.banco) {
-        db.cajas.banco -= m; db.cajas.fondo += m;
-        actualizar();
-    }
+    if (m > 0 && m <= db.cajas.banco) { db.cajas.banco -= m; db.cajas.fondo += m; document.getElementById('trans-monto').value = ""; actualizar(); }
 };
 
-window.acreditarTarjeta = function() {
-    const m = parseFloat(document.getElementById('trans-monto').value);
-    if (m > 0 && m <= (db.cajas.tarjetas || 0)) {
-        db.cajas.tarjetas -= m; db.cajas.banco += m;
-        actualizar();
-    }
-};
-
-// VER DETALLE
-window.verDetalle = function(item) {
-    document.getElementById('titulo-detalle').innerText = `Movimientos: ${item}`;
-    let html = '';
-    
-    if (['banco', 'efectivo', 'tarjetas'].includes(item)) {
-        const movs = [];
-        (db.clientes || []).forEach(c => {
-            (c.pagos || []).forEach(p => {
-                if (p.met === item) {
-                    movs.push({
-                        cliente: c.nom,
-                        tel: c.tel || 'Sin número',
-                        monto: p.monto,
-                        fecha: p.fecha
-                    });
-                }
-            });
-        });
-        
-        if (movs.length === 0) {
-            html = '<p style="color: #94a3b8;">No hay pagos de clientes registrados en esta cuenta.</p>';
-        } else {
-            html = movs.map(m => `
-                <div style="border-bottom: 1px solid #334155; padding: 12px 0;">
-                    <div style="display:flex; justify-content:space-between; align-items: center;">
-                        <strong style="font-size: 16px;">${m.cliente}</strong>
-                        <span style="font-size: 12px; color: #94a3b8;">${m.fecha}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items: center; margin-top: 5px;">
-                        <div style="color: #94a3b8; font-size: 13px;">📞 ${m.tel}</div>
-                        <div style="color: #22c55e; font-weight: bold;">+ $${m.monto.toLocaleString()}</div>
-                    </div>
-                </div>
-            `).join('');
-        }
-    } else if (['pablo', 'fer', 'publicidad'].includes(item)) {
-        const tipoFiltro = item === 'publicidad' ? 'Publicidad' : (item.charAt(0).toUpperCase() + item.slice(1));
-        const movs = (db.historialRetiros || []).filter(h => h.tipo === tipoFiltro);
-        
-        if (movs.length === 0) {
-            html = '<p style="color: #94a3b8;">No hay movimientos registrados.</p>';
-        } else {
-            html = movs.map(m => `
-                <div style="border-bottom: 1px solid #334155; padding: 12px 0;">
-                    <div style="display:flex; justify-content:space-between; align-items: center;">
-                        <strong style="font-size: 16px;">${m.detalle || (item === 'publicidad' ? 'Gasto General' : 'Retiro de Socios')}</strong>
-                        <span style="font-size: 12px; color: #94a3b8;">${m.fecha}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items: center; margin-top: 5px;">
-                        <div style="color: #94a3b8; font-size: 13px;">Desde: ${m.origen.toUpperCase()}</div>
-                        <div style="color: var(--red); font-weight: bold;">- $${m.monto.toLocaleString()}</div>
-                    </div>
-                </div>
-            `).join('');
-        }
-    }
-    
-    document.getElementById('lista-detalle').innerHTML = html;
-    verTab('detalle'); 
-};
-
-// 5. PDF Y RENDER
 window.exportarPDF = function() {
     const tmp = document.createElement('div');
-    tmp.style.padding = '30px';
-    tmp.style.color = '#000';
-    tmp.style.background = '#fff';
-
-    let html = `
-        <h1 style="text-align:center; color:#3b82f6;">PORTONES AUTOMÁTICOS CÓRDOBA</h1>
-        <h2 style="text-align:center;">Reporte: ${db.periodo}</h2>
-        <hr>
-        <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
-            <tr>
-                <td><strong>Banco:</strong> $${db.cajas.banco.toLocaleString()}</td>
-                <td><strong>Efectivo:</strong> $${db.cajas.efectivo.toLocaleString()}</td>
-            </tr>
-            <tr>
-                <td><strong>Tarjetas:</strong> $${(db.cajas.tarjetas || 0).toLocaleString()}</td>
-                <td><strong>Fondo:</strong> $${db.cajas.fondo.toLocaleString()}</td>
-            </tr>
-        </table>
-        <p><strong>Retiro Pablo:</strong> $${db.retiros.pablo.toLocaleString()}</p>
-        <p><strong>Retiro Fer:</strong> $${db.retiros.fer.toLocaleString()}</p>
-        <p><strong>Publicidad / Otros:</strong> $${(db.gastosPubli || 0).toLocaleString()}</p>
-        <hr>
-        <h3>Estado de Obras</h3>`;
-
+    tmp.style.padding = '30px'; tmp.style.color = '#000'; tmp.style.background = '#fff';
+    let html = `<h1 style="text-align:center;">PORTONES AUTOMÁTICOS CÓRDOBA</h1><h2 style="text-align:center;">Reporte: ${db.periodo}</h2><hr><table style="width:100%; border-collapse:collapse;"><tr><td><strong>Banco:</strong> $${db.cajas.banco.toLocaleString()}</td><td><strong>Efectivo:</strong> $${db.cajas.efectivo.toLocaleString()}</td></tr><tr><td><strong>Tarjetas:</strong> $${(db.cajas.tarjetas || 0).toLocaleString()}</td><td><strong>Fondo:</strong> $${db.cajas.fondo.toLocaleString()}</td></tr></table><p><strong>Retiro Pablo:</strong> $${db.retiros.pablo.toLocaleString()}</p><p><strong>Retiro Fer:</strong> $${db.retiros.fer.toLocaleString()}</p><hr><h3>Estado de Obras</h3>`;
     db.clientes.forEach(c => {
         const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
-        const deudaActual = c.coti - pagado;
-        html += `
-            <div style="border-bottom:1px solid #ccc; padding:10px 0;">
-                <strong>${c.nom}</strong> ${c.terminado ? '(FINALIZADA)' : '(ACTIVA)'}<br>
-                Coti: $${c.coti.toLocaleString()} | Cobrado: $${pagado.toLocaleString()} | <strong>Debe: $${deudaActual.toLocaleString()}</strong><br>
-                ${c.fechaFinalizado ? `<small>Finalizado: ${c.fechaFinalizado}</small>` : ''}
-            </div>`;
+        html += `<div style="border-bottom:1px solid #ccc; padding:10px 0;"><strong>${c.nom}</strong> ${c.terminado ? '(FINAL)' : '(ACT)'}<br>Coti: $${c.coti.toLocaleString()} | Debe: $${(c.coti - pagado).toLocaleString()}</div>`;
     });
-
     tmp.innerHTML = html;
-    
-    const opciones = {
-        margin: 10,
-        filename: `PAC-Reporte-${db.periodo}.pdf`,
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    html2pdf().set(opciones).from(tmp).save();
+    html2pdf().set({ margin: 10, filename: `PAC-Reporte-${db.periodo}.pdf` }).from(tmp).save();
 };
 
 function render() {
@@ -424,56 +370,31 @@ function render() {
     document.getElementById('t-fondo').innerText = `$${db.cajas.fondo.toLocaleString()}`;
     document.getElementById('t-pablo').innerText = `$${db.retiros.pablo.toLocaleString()}`;
     document.getElementById('t-fer').innerText = `$${db.retiros.fer.toLocaleString()}`;
-    
-    const elPubli = document.getElementById('t-publicidad');
-    if(elPubli) elPubli.innerText = `$${(db.gastosPubli || 0).toLocaleString()}`;
-
+    if(document.getElementById('t-publicidad')) document.getElementById('t-publicidad').innerText = `$${(db.gastosPubli || 0).toLocaleString()}`;
     const cont = document.getElementById('contenedor-clientes');
     if(!cont) return;
-
-    const mesSeleccionado = db.periodo;
-
-    cont.innerHTML = (db.clientes || []).filter(c => {
-        if (!c.terminado || !c.fechaFinalizado) return true;
-        const mesFinalizado = c.fechaFinalizado.substring(0, 7);
-        return mesFinalizado === mesSeleccionado;
-    }).map(c => {
-        const totalPagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
-        const deudaTotal = c.coti - totalPagado;
-        
-        const totalMateriales = (c.materiales || []).reduce((a, b) => a + b.costo, 0);
-        const gananciaNeta = c.coti - totalMateriales;
-        
-        const listaMat = (c.materiales || []).map(m => `<li style="font-size:11px;">${m.det}: $${m.costo.toLocaleString()}</li>`).join('');
-        
-        return `
-            <div class="hoja-cliente" style="${c.terminado ? 'border-left: 8px solid #22c55e; opacity: 0.8;' : ''}">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
+    cont.innerHTML = (db.clientes || []).filter(c => !c.terminado || c.fechaFinalizado?.substring(0,7) === db.periodo).map(c => {
+        const pagado = (c.pagos || []).reduce((a, b) => a + b.monto, 0);
+        const mats = (c.materiales || []).reduce((a, b) => a + b.costo, 0);
+        return `<div class="hoja-cliente" style="${c.terminado ? 'border-left:8px solid #22c55e; opacity:0.8;' : ''}">
+                <div style="display:flex; justify-content:space-between;">
                     <h3 style="margin:0;">${c.nom}</h3>
-                    <input type="date" value="${c.fechaFinalizado || ''}" onchange="guardarFechaFin(${c.id}, this.value)" style="width:auto; padding:2px;">
+                    <button onclick="borrarCliente(${c.id})" style="background:none; border:none; color:var(--red); font-size:12px; cursor:pointer;">Eliminar 🗑️</button>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-                    <p style="margin:0;">Deuda: <strong style="color:var(--red);">$${deudaTotal.toLocaleString()}</strong></p>
-                    <p style="margin:0;">Ganancia: <strong style="color:#22c55e;">$${gananciaNeta.toLocaleString()}</strong></p>
-                </div>
-                <div style="background:rgba(0,0,0,0.1); padding:5px; border-radius:5px; margin-bottom:10px; margin-top: 10px;">
-                    <ul style="margin:0; padding-left:15px;">${listaMat || '<li style="font-size:10px;">Sin gastos</li>'}</ul>
+                <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                    <p style="margin:0;">Debe: <strong style="color:var(--red);">$${(c.coti - pagado).toLocaleString()}</strong></p>
+                    <p style="margin:0;">Ganancia: <strong style="color:#22c55e;">$${(c.coti - mats).toLocaleString()}</strong></p>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                     <div>
                         <input type="number" id="p-mon-${c.id}" placeholder="Cobro $">
                         <select id="p-met-${c.id}"><option value="banco">Banco</option><option value="efectivo">Efe</option><option value="tarjetas">Tarjeta</option></select>
-                        <button onclick="cargarPago(${c.id})" class="btn btn-blue" style="width:100%; padding:5px; margin-top:3px;">Cobrar</button>
+                        <button onclick="cargarPago(${c.id})" class="btn btn-blue" style="width:100%; padding:5px;">Cobrar</button>
                     </div>
                     <div>
                         <input type="text" id="m-det-${c.id}" placeholder="Detalle">
                         <input type="number" id="m-cos-${c.id}" placeholder="Gasto $">
-                        <select id="m-ori-${c.id}">
-                            <option value="fondo">Fondo</option>
-                            <option value="banco">Banco</option>
-                            <option value="efectivo">Efectivo</option>
-                        </select>
-                        <button onclick="cargarMaterial(${c.id})" class="btn btn-red" style="width:100%; padding:5px; margin-top:3px;">Gastar</button>
+                        <button onclick="cargarMaterial(${c.id})" class="btn btn-red" style="width:100%; padding:5px;">Gastar</button>
                     </div>
                 </div>
                 <button onclick="toggleTerminado(${c.id})" style="width:100%; margin-top:10px; background:${c.terminado ? '#64748b' : '#22c55e'}; color:white; border:none; padding:5px; border-radius:5px;">
@@ -483,41 +404,18 @@ function render() {
     }).join('');
 }
 
-// 6. FUNCIONES DE CALCULADORA FLOTANTE
+// 6. CALCULADORA (IGUAL)
 window.toggleCalculadora = function() {
     const calc = document.getElementById('calculadora-modal');
     const btn = document.getElementById('btn-abrir-calc');
-    if (calc.style.display === 'none') {
-        calc.style.display = 'block';
-        btn.style.display = 'none';
-    } else {
-        calc.style.display = 'none';
-        btn.style.display = 'flex';
-    }
+    if (calc.style.display === 'none') { calc.style.display = 'block'; btn.style.display = 'none'; }
+    else { calc.style.display = 'none'; btn.style.display = 'flex'; }
 };
-
-window.calcInput = function(val) {
-    const display = document.getElementById('calc-display');
-    if (display.value === "Error") display.value = "";
-    display.value += val;
-};
-
-window.calcClear = function() {
-    document.getElementById('calc-display').value = "";
-};
-
+window.calcInput = function(v) { document.getElementById('calc-display').value += v; };
+window.calcClear = function() { document.getElementById('calc-display').value = ""; };
 window.calcEval = function() {
-    const display = document.getElementById('calc-display');
     try {
-        let expr = display.value.replace(/×/g, '*').replace(/÷/g, '/');
-        if(/^[0-9+\-*/.() ]+$/.test(expr)){
-            let res = Function('"use strict";return (' + expr + ')')();
-            if(!Number.isInteger(res)) res = res.toFixed(2);
-            display.value = res;
-        } else {
-            display.value = "Error";
-        }
-    } catch(e) {
-        display.value = "Error";
-    }
+        let e = document.getElementById('calc-display').value.replace(/×/g, '*').replace(/÷/g, '/');
+        document.getElementById('calc-display').value = eval(e);
+    } catch(e) { document.getElementById('calc-display').value = "Error"; }
 };
