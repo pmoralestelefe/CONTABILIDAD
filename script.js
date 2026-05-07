@@ -23,10 +23,12 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 window.validarAcceso = async function() {
+
     const email = document.getElementById('email-acceso').value;
     const password = document.getElementById('pass-acceso').value;
 
     try {
+
         await setPersistence(auth, browserSessionPersistence);
 
         await signInWithEmailAndPassword(auth, email, password);
@@ -34,7 +36,9 @@ window.validarAcceso = async function() {
         document.getElementById('bloqueo-seguridad').style.display = 'none';
 
     } catch (error) {
+
         document.getElementById('error-pass').style.display = 'block';
+
         console.error(error);
     }
 };
