@@ -26,6 +26,15 @@ import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebase
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+signInAnonymously(auth)
+  .then(() => {
+    console.log("Autenticado anónimamente");
+  })
+  .catch((error) => {
+    console.error("Error de autenticación:", error);
+  });
 const db_firebase = getDatabase(app);
 const dbRef = ref(db_firebase, 'contabilidad');
 
