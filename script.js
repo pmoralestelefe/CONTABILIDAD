@@ -14,7 +14,7 @@ import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebase
 import { 
   getAuth,
   signInWithEmailAndPassword,
-  onAuthStateChanged
+  onAuthStateChanged,
   browserSessionPersistence,
   setPersistence
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
