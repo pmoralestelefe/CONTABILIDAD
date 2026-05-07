@@ -1,15 +1,3 @@
-// 1. CONFIGURACIÓN DE SEGURIDAD
-window.validarAcceso = function() {
-    const passIngresada = document.getElementById('pass-acceso').value;
-    const claveCorrecta = "PAC2026"; 
-    if (passIngresada === claveCorrecta) {
-        sessionStorage.setItem('acceso_pac', 'ok');
-        document.getElementById('bloqueo-seguridad').style.display = 'none';
-    } else {
-        document.getElementById('error-pass').style.display = 'block';
-    }
-};
-
 // 2. CONFIGURACIÓN FIREBASE
 const firebaseConfig = {
     apiKey: "AIzaSyBnXQE-0Qxd1oRtY5jhaxuZ3ISMiOVhgNs",
@@ -23,18 +11,36 @@ const firebaseConfig = {
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { 
+  getAuth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-signInAnonymously(auth)
-  .then(() => {
-    console.log("Autenticado anónimamente");
-  })
-  .catch((error) => {
-    console.error("Error de autenticación:", error);
-  });
+window.validarAcceso = async function() {
+    const email = document.getElementById('email-acceso').value;
+    const password = document.getElementById('pass-acceso').value;
+
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+
+        document.getElementById('bloqueo-seguridad').style.display = 'none';
+
+    } catch (error) {
+        document.getElementById('error-pass').style.display = 'block';
+        console.error(error);
+    }
+};
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        const bloqueo = document.getElementById('bloqueo-seguridad');
+        if (bloqueo) bloqueo.style.display = 'none';
+    }
+});
 const db_firebase = getDatabase(app);
 const dbRef = ref(db_firebase, 'contabilidad');
 
