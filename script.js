@@ -15,6 +15,8 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   onAuthStateChanged
+  browserSessionPersistence,
+  setPersistence
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
@@ -25,6 +27,8 @@ window.validarAcceso = async function() {
     const password = document.getElementById('pass-acceso').value;
 
     try {
+        await setPersistence(auth, browserSessionPersistence);
+
         await signInWithEmailAndPassword(auth, email, password);
 
         document.getElementById('bloqueo-seguridad').style.display = 'none';
