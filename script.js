@@ -64,14 +64,6 @@ let db = {
     periodo: ""
 };
 
-// 3. INICIO Y SINCRONIZACIÓN
-document.addEventListener("DOMContentLoaded", () => {
-    if (sessionStorage.getItem('acceso_pac') === 'ok') {
-        const b = document.getElementById('bloqueo-seguridad');
-        if(b) b.style.display = 'none';
-    }
-});
-
 onValue(dbRef, (snapshot) => {
     const data = snapshot.val();
     if (data) { 
