@@ -48,9 +48,53 @@ window.validarAcceso = async function() {
 };
 
 onAuthStateChanged(auth, (user) => {
+
     if (user) {
+
         const bloqueo = document.getElementById('bloqueo-seguridad');
+
         if (bloqueo) bloqueo.style.display = 'none';
+
+        onValue(dbRef, (snapshot) => {
+
+            const data = snapshot.val();
+
+            if (data) {
+
+                if (data.cajas && !data.meses) {
+
+                    const p = data.periodo || new Date().toISOString().slice(0,7);
+
+                    masterDB = {
+                        periodoActual: p,
+                        meses: {}
+                    };
+
+                    masterDB.meses[p] = data;
+
+                    delete masterDB.meses[p].periodo;
+
+                    set(dbRef, masterDB);
+
+                    return;
+                }
+
+                masterDB = data;
+
+                if(!masterDB.meses) masterDB.meses = {};
+
+                periodoSeleccionado = masterDB.periodoActual || new Date().toISOString().slice(0,7);
+
+                const elPeriodo = document.getElementById('periodo-actual');
+
+                if (elPeriodo && elPeriodo.value !== periodoSeleccionado) {
+                    elPeriodo.value = periodoSeleccionado;
+                }
+
+                cargarMes(periodoSeleccionado);
+            }
+        });
+
     }
 });
 const db_firebase = getDatabase(app);
@@ -68,34 +112,7 @@ let db = {
     periodo: ""
 };
 
-onValue(dbRef, (snapshot) => {
-    const data = snapshot.val();
-    if (data) { 
-        if (data.cajas && !data.meses) {
-            const p = data.periodo || new Date().toISOString().slice(0,7);
-            masterDB = {
-                periodoActual: p,
-                meses: {}
-            };
-            masterDB.meses[p] = data;
-            delete masterDB.meses[p].periodo;
-            set(dbRef, masterDB); 
-            return; 
-        }
 
-        masterDB = data;
-        if(!masterDB.meses) masterDB.meses = {};
-
-        periodoSeleccionado = masterDB.periodoActual || new Date().toISOString().slice(0,7);
-        
-        const elPeriodo = document.getElementById('periodo-actual');
-        if (elPeriodo && elPeriodo.value !== periodoSeleccionado) {
-            elPeriodo.value = periodoSeleccionado;
-        }
-
-        cargarMes(periodoSeleccionado);
-    }
-});
 
 function cargarMes(mes) {
     if (!masterDB.meses) masterDB.meses = {};
