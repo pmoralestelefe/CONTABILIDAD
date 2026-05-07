@@ -31,15 +31,19 @@ window.validarAcceso = async function() {
 
         await setPersistence(auth, browserSessionPersistence);
 
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(
+            auth,
+            email,
+            password
+        );
 
-        document.getElementById('bloqueo-seguridad').style.display = 'none';
+        console.log("Login correcto:", userCredential.user.email);
 
     } catch (error) {
 
-        document.getElementById('error-pass').style.display = 'block';
+        console.error("ERROR LOGIN:", error);
 
-        console.error(error);
+        document.getElementById('error-pass').style.display = 'block';
     }
 };
 
