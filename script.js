@@ -1,15 +1,3 @@
-// 1. CONFIGURACIÓN DE SEGURIDAD
-window.validarAcceso = function() {
-    const passIngresada = document.getElementById('pass-acceso').value;
-    const claveCorrecta = "PAC2026"; 
-    if (passIngresada === claveCorrecta) {
-        sessionStorage.setItem('acceso_pac', 'ok');
-        document.getElementById('bloqueo-seguridad').style.display = 'none';
-    } else {
-        document.getElementById('error-pass').style.display = 'block';
-    }
-};
-
 // 2. CONFIGURACIÓN FIREBASE
 const firebaseConfig = {
     apiKey: "AIzaSyBnXQE-0Qxd1oRtY5jhaxuZ3ISMiOVhgNs",
