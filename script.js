@@ -141,6 +141,7 @@ function cargarMes(mes) {
     db.periodo = mes; 
 
     if(!db.cajas) db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
+    if(db.cajas.dolares === undefined) db.cajas.dolares = 0; // Agrega esta línea
     if(!db.retiros) db.retiros = { pablo: 0, fer: 0 };
     if(!db.gastosPubli) db.gastosPubli = 0;
     if(!db.historialRetiros) db.historialRetiros = [];
@@ -179,7 +180,7 @@ window.cambiarPeriodo = function() {
 window.resetMes = function() {
     if(!confirm("¿ESTÁS SEGURO? Se resetearán todas las CAJAS a $0, se borrarán retiros y clientes finalizados del mes actual. Solo quedarán obras activas con deuda.")) return;
     
-    db.cajas = { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 };
+    db.cajas = { banco: 0, efectivo: 0, dolares: 0, tarjetas: 0, fondo: 0 };
     db.retiros = { pablo: 0, fer: 0 };
     db.gastosPubli = 0; 
     db.historialRetiros = []; 
@@ -239,24 +240,51 @@ window.guardarFechaFin = function(id, fecha) {
 };
 
 window.cargarPago = function(id) {
-    const monto = parseFloat(document.getElementById(`p-mon-${id}`).value);
+    const montoInput = parseFloat(document.getElementById(`p-mon-${id}`).value);
     const met = document.getElementById(`p-met-${id}`).value;
-    if (monto) {
+    
+    if (montoInput > 0) {
         const cli = db.clientes.find(c => c.id === id);
         if(!cli.pagos) cli.pagos = [];
-        cli.pagos.push({ monto, met, fecha: new Date().toLocaleDateString() });
-        db.cajas[met] = (db.cajas[met] || 0) + monto;
-        actualizar();
+
+        if (met === 'dolares') {
+            const cotizacion = prompt(`Ingresaste un cobro de U$D ${montoInput}.\n¿A qué valor en PESOS le tomaste cada dólar al cliente? (Ej: 1000)`);
+            
+            if (cotizacion && !isNaN(cotizacion)) {
+                const tasa = parseFloat(cotizacion);
+                const equivalenteEnPesos = montoInput * tasa;
+
+                cli.pagos.push({ 
+                    monto: equivalenteEnPesos, // Descuenta pesos de la deuda
+                    montoUSD: montoInput,      // Guarda el valor físico real
+                    met: 'dolares', 
+                    tasa: tasa,
+                    fecha: new Date().toLocaleDateString() 
+                });
+
+                db.cajas.dolares = (db.cajas.dolares || 0) + montoInput;
+                actualizar();
+            }
+        } else {
+            cli.pagos.push({ monto: montoInput, met: met, fecha: new Date().toLocaleDateString() });
+            db.cajas[met] = (db.cajas[met] || 0) + montoInput;
+            actualizar();
+        }
     }
 };
 
-// NUEVO: Borrar y corregir un pago cargado por error
 window.borrarPago = function(clienteId, pagoIndex) {
-    if(confirm("¿Estás seguro de eliminar este cobro? El dinero se restará automáticamente de la caja para que puedas volver a cargarlo bien.")) {
+    if(confirm("¿Estás seguro de eliminar este cobro? El dinero se restará automáticamente de la caja.")) {
         const cli = db.clientes.find(c => c.id === clienteId);
         const pago = cli.pagos[pagoIndex];
-        db.cajas[pago.met] -= pago.monto; // Revertir el dinero de la caja
-        cli.pagos.splice(pagoIndex, 1);   // Eliminar el registro del pago
+        
+        if (pago.met === 'dolares') {
+            db.cajas.dolares -= pago.montoUSD; // Revertir los dólares físicos
+        } else {
+            db.cajas[pago.met] -= pago.monto; // Revertir los pesos
+        }
+        
+        cli.pagos.splice(pagoIndex, 1);
         actualizar();
     }
 };
@@ -433,6 +461,9 @@ window.exportarPDF = function() {
                 <td><strong>Tarjetas:</strong> $${(db.cajas.tarjetas || 0).toLocaleString()}</td>
                 <td><strong>Fondo:</strong> $${db.cajas.fondo.toLocaleString()}</td>
             </tr>
+            <tr>
+                <td colspan="2"><strong style="color: green;">Dólares Físicos:</strong> U$D ${(db.cajas.dolares || 0).toLocaleString()}</td>
+            </tr>
         </table>
         <p><strong>Retiro Pablo:</strong> $${db.retiros.pablo.toLocaleString()}</p>
         <p><strong>Retiro Fer:</strong> $${db.retiros.fer.toLocaleString()}</p>
@@ -468,6 +499,7 @@ window.exportarPDF = function() {
 function render() {
     document.getElementById('t-banco').innerText = `$${db.cajas.banco.toLocaleString()}`;
     document.getElementById('t-efectivo').innerText = `$${db.cajas.efectivo.toLocaleString()}`;
+    document.getElementById('t-dolares').innerText = `U$D ${(db.cajas.dolares || 0).toLocaleString()}`; // AGREGAR ESTA
     document.getElementById('t-tarjetas').innerText = `$${(db.cajas.tarjetas || 0).toLocaleString()}`;
     document.getElementById('t-fondo').innerText = `$${db.cajas.fondo.toLocaleString()}`;
     document.getElementById('t-pablo').innerText = `$${db.retiros.pablo.toLocaleString()}`;
@@ -493,7 +525,13 @@ function render() {
         const gananciaNeta = c.coti - totalMateriales;
         
         // NUEVO: Mostrar lista de cobros para poder borrarlos si te equivocas
-        const listaPagos = (c.pagos || []).map((p, i) => `<li style="font-size:11px; color:#22c55e;">Cobro ${p.met}: $${p.monto.toLocaleString()} <span onclick="borrarPago(${c.id}, ${i})" style="color:var(--red); cursor:pointer; margin-left:5px; font-weight:bold;" title="Borrar pago">[X]</span></li>`).join('');
+        const listaPagos = (c.pagos || []).map((p, i) => {
+            if (p.met === 'dolares') {
+                return `<li style="font-size:11px; color:#22c55e;">Cobro U$D ${p.montoUSD} (a $${p.tasa}) = $${p.monto.toLocaleString()} <span onclick="borrarPago(${c.id}, ${i})" style="color:var(--red); cursor:pointer; font-weight:bold;">[X]</span></li>`;
+        } else {
+            return `<li style="font-size:11px; color:#22c55e;">Cobro ${p.met}: $${p.monto.toLocaleString()} <span onclick="borrarPago(${c.id}, ${i})" style="color:var(--red); cursor:pointer; font-weight:bold;">[X]</span></li>`;
+        }
+    }).join('');
         const listaMat = (c.materiales || []).map(m => `<li style="font-size:11px;">${m.det}: $${m.costo.toLocaleString()}</li>`).join('');
         
         return `
@@ -524,7 +562,12 @@ function render() {
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                     <div>
                         <input type="number" id="p-mon-${c.id}" placeholder="Cobro $">
-                        <select id="p-met-${c.id}"><option value="banco">Banco</option><option value="efectivo">Efe</option><option value="tarjetas">Tarjeta</option></select>
+                        <select id="p-met-${c.id}">
+                            <option value="banco">Banco</option>
+                            <option value="efectivo">Efe</option>
+                            <option value="dolares">Dólares (U$D)</option>
+                            <option value="tarjetas">Tarjeta</option>
+                        </select>
                         <button onclick="cargarPago(${c.id})" class="btn btn-blue" style="width:100%; padding:5px; margin-top:3px;">Cobrar</button>
                     </div>
                     <div>
@@ -544,6 +587,29 @@ function render() {
             </div>`;
     }).join('');
 }
+
+window.venderDolares = function() {
+    const usd = parseFloat(document.getElementById('cambio-usd').value);
+    const tasa = parseFloat(document.getElementById('cambio-tasa').value);
+    
+    if (usd > 0 && tasa > 0) {
+        if (usd > (db.cajas.dolares || 0)) {
+            alert("Error: No tienes suficientes dólares registrados en caja para esta operación.");
+            return;
+        }
+        
+        const pesosObtenidos = usd * tasa;
+        
+        // Saca de dólares y mete en efectivo
+        db.cajas.dolares -= usd;
+        db.cajas.efectivo += pesosObtenidos;
+        
+        document.getElementById('cambio-usd').value = "";
+        document.getElementById('cambio-tasa').value = "";
+        actualizar();
+        alert(`Cambio exitoso: Salieron U$D ${usd} e ingresaron $${pesosObtenidos.toLocaleString()} a la caja de Efectivo.`);
+    }
+};
 
 // 6. FUNCIONES DE CALCULADORA FLOTANTE
 window.toggleCalculadora = function() {
