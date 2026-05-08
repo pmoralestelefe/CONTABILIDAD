@@ -1,4 +1,4 @@
-// 2. CONFIGURACIÓN FIREBASE
+// 1. CONFIGURACIÓN FIREBASE
 const firebaseConfig = {
     apiKey: "AIzaSyBnXQE-0Qxd1oRtY5jhaxuZ3ISMiOVhgNs",
     authDomain: "contabilidad-pac.firebaseapp.com",
@@ -9,12 +9,17 @@ const firebaseConfig = {
     appId: "1:74465692200:web:764e4243b94dd2886b431d"
 };
 
+// Importamos Firebase App, Realtime Database y ahora Authentication
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
 const db_firebase = getDatabase(app);
+const auth = getAuth(app); // Inicializamos Auth
 const dbRef = ref(db_firebase, 'contabilidad');
+
+// ... (Aquí dejas tus variables let masterDB, periodoSeleccionado, db, etc. tal como están) ...
 
 let masterDB = {}; 
 let periodoSeleccionado = ""; 
@@ -28,42 +33,74 @@ let db = {
     periodo: ""
 };
 
-// 3. INICIO Y SINCRONIZACIÓN
-document.addEventListener("DOMContentLoaded", () => {
-    if (sessionStorage.getItem('acceso_pac') === 'ok') {
-        const b = document.getElementById('bloqueo-seguridad');
-        if(b) b.style.display = 'none';
-    }
-});
-
-onValue(dbRef, (snapshot) => {
-    const data = snapshot.val();
-    if (data) { 
-        if (data.cajas && !data.meses) {
-            const p = data.periodo || new Date().toISOString().slice(0,7);
-            masterDB = {
-                periodoActual: p,
-                meses: {}
-            };
-            masterDB.meses[p] = data;
-            delete masterDB.meses[p].periodo;
-            set(dbRef, masterDB); 
-            return; 
-        }
-
-        masterDB = data;
-        if(!masterDB.meses) masterDB.meses = {};
-
-        periodoSeleccionado = masterDB.periodoActual || new Date().toISOString().slice(0,7);
+// 2. SEGURIDAD Y ESTADO DE SESIÓN
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        // Si el usuario está logueado, ocultamos el cartel de acceso
+        document.getElementById('bloqueo-seguridad').style.display = 'none';
         
-        const elPeriodo = document.getElementById('periodo-actual');
-        if (elPeriodo && elPeriodo.value !== periodoSeleccionado) {
-            elPeriodo.value = periodoSeleccionado;
-        }
-
-        cargarMes(periodoSeleccionado);
+        // Y SOLO AHORA pedimos los datos a la base de datos (por las reglas de seguridad)
+        iniciarConexionDB();
+    } else {
+        // Si no hay sesión, mostramos el cartel
+        document.getElementById('bloqueo-seguridad').style.display = 'flex';
     }
 });
+
+window.validarAcceso = function() {
+    const email = document.getElementById('email-acceso').value;
+    const pass = document.getElementById('pass-acceso').value;
+
+    signInWithEmailAndPassword(auth, email, pass)
+        .then((userCredential) => {
+            // El login fue exitoso. onAuthStateChanged ocultará el cartel.
+            document.getElementById('error-pass').style.display = 'none';
+        })
+        .catch((error) => {
+            // Falló el login
+            document.getElementById('error-pass').style.display = 'block';
+            console.error("Error Auth:", error.message);
+        });
+};
+
+window.cerrarSesion = function() {
+    signOut(auth).then(() => {
+        // Recarga la página al salir para limpiar los datos en memoria
+        window.location.reload(); 
+    });
+};
+
+// 3. INICIO Y SINCRONIZACIÓN DE BASE DE DATOS
+function iniciarConexionDB() {
+    onValue(dbRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) { 
+            if (data.cajas && !data.meses) {
+                const p = data.periodo || new Date().toISOString().slice(0,7);
+                masterDB = {
+                    periodoActual: p,
+                    meses: {}
+                };
+                masterDB.meses[p] = data;
+                delete masterDB.meses[p].periodo;
+                set(dbRef, masterDB); 
+                return; 
+            }
+
+            masterDB = data;
+            if(!masterDB.meses) masterDB.meses = {};
+
+            periodoSeleccionado = masterDB.periodoActual || new Date().toISOString().slice(0,7);
+            
+            const elPeriodo = document.getElementById('periodo-actual');
+            if (elPeriodo && elPeriodo.value !== periodoSeleccionado) {
+                elPeriodo.value = periodoSeleccionado;
+            }
+
+            cargarMes(periodoSeleccionado);
+        }
+    });
+}
 
 function cargarMes(mes) {
     if (!masterDB.meses) masterDB.meses = {};
