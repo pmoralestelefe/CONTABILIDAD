@@ -1,4 +1,16 @@
-// 1. CONFIGURACIÓN FIREBASE
+// 1. CONFIGURACIÓN DE SEGURIDAD
+window.validarAcceso = function() {
+    const passIngresada = document.getElementById('pass-acceso').value;
+    const claveCorrecta = "PAC2026"; 
+    if (passIngresada === claveCorrecta) {
+        sessionStorage.setItem('acceso_pac', 'ok');
+        document.getElementById('bloqueo-seguridad').style.display = 'none';
+    } else {
+        document.getElementById('error-pass').style.display = 'block';
+    }
+};
+
+// 2. CONFIGURACIÓN FIREBASE
 const firebaseConfig = {
     apiKey: "AIzaSyBnXQE-0Qxd1oRtY5jhaxuZ3ISMiOVhgNs",
     authDomain: "contabilidad-pac.firebaseapp.com",
@@ -10,142 +22,61 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-
-import {
-    getDatabase,
-    ref,
-    set,
-    onValue
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-import {
-    getAuth,
-    signInWithEmailAndPassword,
-    onAuthStateChanged,
-    browserSessionPersistence,
-    setPersistence,
-    signOut
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
-
-const auth = getAuth(app);
-
 const db_firebase = getDatabase(app);
-
 const dbRef = ref(db_firebase, 'contabilidad');
 
-let masterDB = {};
-
-let periodoSeleccionado = "";
+let masterDB = {}; 
+let periodoSeleccionado = ""; 
 
 let db = {
     cajas: { banco: 0, efectivo: 0, tarjetas: 0, fondo: 0 },
     retiros: { pablo: 0, fer: 0 },
-    gastosPubli: 0,
+    gastosPubli: 0, 
     clientes: [],
-    historialRetiros: [],
+    historialRetiros: [], 
     periodo: ""
 };
 
-// LOGIN FIREBASE
-window.validarAcceso = async function() {
-
-    const email = document.getElementById('email-acceso').value.trim();
-
-    const password = document.getElementById('pass-acceso').value.trim();
-
-    try {
-
-        document.getElementById('error-pass').style.display = 'none';
-
-        await setPersistence(auth, browserSessionPersistence);
-
-        await signInWithEmailAndPassword(
-            auth,
-            email,
-            password
-        );
-
-    } catch (error) {
-
-        console.error("ERROR LOGIN:", error);
-
-        document.getElementById('error-pass').style.display = 'block';
-    }
-};
-
-// CERRAR SESIÓN
-window.cerrarSesion = async function() {
-
-    try {
-
-        await signOut(auth);
-
-        location.reload();
-
-    } catch (error) {
-
-        console.error(error);
-    }
-};
-
-// ESPERAR LOGIN Y RECIÉN AHÍ CARGAR DATOS
-onAuthStateChanged(auth, (user) => {
-
-    if (user) {
-
-        const bloqueo = document.getElementById('bloqueo-seguridad');
-
-        if (bloqueo) {
-            bloqueo.style.display = 'none';
-        }
-
-        onValue(dbRef, (snapshot) => {
-
-            const data = snapshot.val();
-
-            if (data) {
-
-                if (data.cajas && !data.meses) {
-
-                    const p = data.periodo || new Date().toISOString().slice(0,7);
-
-                    masterDB = {
-                        periodoActual: p,
-                        meses: {}
-                    };
-
-                    masterDB.meses[p] = data;
-
-                    delete masterDB.meses[p].periodo;
-
-                    set(dbRef, masterDB);
-
-                    return;
-                }
-
-                masterDB = data;
-
-                if(!masterDB.meses) {
-                    masterDB.meses = {};
-                }
-
-                periodoSeleccionado = masterDB.periodoActual || new Date().toISOString().slice(0,7);
-
-                const elPeriodo = document.getElementById('periodo-actual');
-
-                if (elPeriodo && elPeriodo.value !== periodoSeleccionado) {
-
-                    elPeriodo.value = periodoSeleccionado;
-                }
-
-                cargarMes(periodoSeleccionado);
-            }
-        });
-
+// 3. INICIO Y SINCRONIZACIÓN
+document.addEventListener("DOMContentLoaded", () => {
+    if (sessionStorage.getItem('acceso_pac') === 'ok') {
+        const b = document.getElementById('bloqueo-seguridad');
+        if(b) b.style.display = 'none';
     }
 });
+
+onValue(dbRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data) { 
+        if (data.cajas && !data.meses) {
+            const p = data.periodo || new Date().toISOString().slice(0,7);
+            masterDB = {
+                periodoActual: p,
+                meses: {}
+            };
+            masterDB.meses[p] = data;
+            delete masterDB.meses[p].periodo;
+            set(dbRef, masterDB); 
+            return; 
+        }
+
+        masterDB = data;
+        if(!masterDB.meses) masterDB.meses = {};
+
+        periodoSeleccionado = masterDB.periodoActual || new Date().toISOString().slice(0,7);
+        
+        const elPeriodo = document.getElementById('periodo-actual');
+        if (elPeriodo && elPeriodo.value !== periodoSeleccionado) {
+            elPeriodo.value = periodoSeleccionado;
+        }
+
+        cargarMes(periodoSeleccionado);
+    }
+});
+
 function cargarMes(mes) {
     if (!masterDB.meses) masterDB.meses = {};
 
