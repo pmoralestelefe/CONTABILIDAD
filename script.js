@@ -385,19 +385,45 @@ window.transferirBancoFondo = function() {
     }
 };
 
-// NUEVO: Acreditación con descuento de comisión bancaria
+// NUEVO: Acreditación con descuento de comisión bancaria y elección de destino
 window.acreditarTarjeta = function() {
-    const m = parseFloat(document.getElementById('trans-monto').value);
-    const comi = parseFloat(document.getElementById('trans-comi').value) || 0; // Si queda vacío asume 0
-    if (m > 0 && m <= (db.cajas.tarjetas || 0)) {
-        db.cajas.tarjetas -= m;           // Descuenta el total de la tarjeta
-        db.cajas.banco += (m - comi);     // Suma el neto al Banco
+    const bruto = parseFloat(document.getElementById('trans-monto').value);
+    const comision = parseFloat(document.getElementById('trans-comi').value) || 0; // Si queda vacío asume 0
+    const destino = document.getElementById('trans-destino').value;
+    
+    // Calculamos el dinero real que entra
+    const netoReal = bruto - comision;
+
+    // Validamos que el monto sea correcto y que haya suficiente dinero en la caja de Tarjetas
+    if (bruto > 0 && bruto <= (db.cajas.tarjetas || 0)) {
+        
+        // 1. Restamos el BRUTO de la caja de tarjetas (porque todo ese monto deja de estar pendiente)
+        db.cajas.tarjetas -= bruto;           
+        
+        // 2. Sumamos el NETO a la caja elegida (Banco o Fondo)
+        db.cajas[destino] = (db.cajas[destino] || 0) + netoReal;     
+
+        // 3. Registramos la comisión como un gasto para que los números cuadren en el balance
+        if (comision > 0) {
+            if(!db.historialRetiros) db.historialRetiros = [];
+            db.historialRetiros.push({
+                tipo: 'General',
+                detalle: `Comisión Payway s/$${bruto}`,
+                monto: comision,
+                origen: 'tarjetas',
+                fecha: new Date().toLocaleDateString()
+            });
+        }
+
+        // Actualizamos base de datos y limpiamos los inputs
         actualizar();
         document.getElementById('trans-monto').value = "";
         document.getElementById('trans-comi').value = "";
-        alert(`Acreditado: Se restaron $${m} de Tarjetas y entraron $${m - comi} limpios al Banco.`);
+        
+        // Mensaje de éxito detallado
+        alert(`¡Acreditación exitosa!\n\nSe restaron $${bruto} de la caja Tarjetas.\nIngresaron $${netoReal} limpios a la caja ${destino.toUpperCase()}.\nComisión descontada: $${comision}`);
     } else {
-        alert("Monto inválido o superior al saldo en Tarjetas.");
+        alert("Error: El monto bruto ingresado es inválido o supera el saldo que tienes en Tarjetas.");
     }
 };
 
