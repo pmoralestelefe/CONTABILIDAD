@@ -550,8 +550,28 @@ function render() {
         return `
             <div class="hoja-cliente" style="${c.terminado ? 'border-left: 8px solid #22c55e; opacity: 0.8;' : ''}">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center;">
-                        <h3 style="margin:0;">${c.nom}</h3>
+                    <div style="display:flex; flex-direction:column;"> <div style="display:flex; align-items:center;">
+                            <h3 style="margin:0;">${c.nom}</h3>
+                            <button onclick="eliminarCliente(${c.id})" class="btn btn-red" style="padding: 4px 8px; font-size: 11px; margin-left: 10px; width:auto;">🗑️</button>
+                        </div>
+
+                        <div style="font-size: 13px; color: #22c55e; font-weight: bold; margin-top: 4px;">
+                            📞 ${c.telefono || 'Sin teléfono'}
+                        </div>
+                    </div>
+                    
+                    <input type="date" value="${c.fechaFinalizado || ''}" onchange="guardarFechaFin(${c.id}, this.value)" style="width:auto; padding:2px; margin-bottom:0;">
+                </div>
+                            <button onclick="eliminarCliente(${c.id})" class="btn btn-red" style="padding: 4px 8px; font-size: 11px; margin-left: 10px; width:auto;">🗑️</button>
+                        </div>
+
+                        <div style="font-size: 13px; color: #22c55e; font-weight: bold; margin-top: 4px;">
+                            📞 ${c.telefono || 'Sin teléfono'}
+                        </div>
+                    </div>
+                    
+                    <input type="date" value="${c.fechaFinalizado || ''}" onchange="guardarFechaFin(${c.id}, this.value)" style="width:auto; padding:2px; margin-bottom:0;">
+                </div>
                         <button onclick="eliminarCliente(${c.id})" class="btn btn-red" style="padding: 4px 8px; font-size: 11px; margin-left: 10px; width:auto;">🗑️ Borrar</button>
                     </div>
                     <input type="date" value="${c.fechaFinalizado || ''}" onchange="guardarFechaFin(${c.id}, this.value)" style="width:auto; padding:2px; margin-bottom:0;">
