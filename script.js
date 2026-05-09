@@ -199,19 +199,32 @@ window.resetMes = function() {
     alert("Sistema reseteado a $0. Solo se conservan las obras en curso.");
 };
 
-window.crearCliente = function() {
-    const nom = document.getElementById('c-nom').value;
-    const tel = document.getElementById('c-tel').value; 
-    const coti = parseFloat(document.getElementById('c-coti').value);
-    if (nom && coti) {
-        if(!db.clientes) db.clientes = [];
-        db.clientes.push({ 
-            id: Date.now(), nom, tel, coti, pagos: [], materiales: [], deudaHeredada: 0, terminado: false 
-        });
+window.agregarCliente = function() {
+    const nom = document.getElementById('cli-nombre').value;
+    const tel = document.getElementById('cli-tel').value; // Nueva línea
+    const obr = document.getElementById('cli-obra').value;
+    const pre = parseFloat(document.getElementById('cli-presupuesto').value);
+
+    if(nom && pre > 0) {
+        const nuevo = {
+            id: Date.now(),
+            nombre: nom,
+            telefono: tel || "Sin teléfono", // Guardamos el número
+            obra: obr,
+            presupuesto: pre,
+            pagos: [],
+            gastos: [],
+            terminado: false
+        };
+        db.clientes.push(nuevo);
+        
+        // Limpiar campos
+        document.getElementById('cli-nombre').value = "";
+        document.getElementById('cli-tel').value = "";
+        document.getElementById('cli-obra').value = "";
+        document.getElementById('cli-presupuesto').value = "";
+        
         actualizar();
-        document.getElementById('c-nom').value = "";
-        document.getElementById('c-tel').value = "";
-        document.getElementById('c-coti').value = "";
     }
 };
 
