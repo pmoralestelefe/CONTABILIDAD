@@ -81,9 +81,35 @@
             </div>
 
             <div class="seccion-form" style="border: 1px solid #334155;">
+                <div class="seccion-form" style="border: 1px solid #334155;">
                 <h3>Traspasos y Acreditaciones</h3>
+
+                <div class="seccion-form" style="border: 1px solid var(--blue); margin-top: 15px; margin-bottom: 15px;">
+                    <h3 style="color: var(--blue);">Acreditación Payway (Tarjetas -> Caja)</h3>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <div>
+                            <label style="font-size: 11px; color: #94a3b8;">Monto Bruto a transferir</label>
+                            <input type="number" id="trans-monto" placeholder="Total a descontar $" style="margin-bottom: 0;">
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; color: #94a3b8;">Comisión Payway</label>
+                            <input type="number" id="trans-comi" placeholder="Descuento $" style="margin-bottom: 0;">
+                        </div>
+                    </div>
+        
+                    <label style="font-size: 11px; color: #94a3b8;">Enviar dinero NETO a:</label>
+                    <select id="trans-destino" style="margin-top: 5px;">
+                        <option value="banco">Banco</option>
+                        <option value="fondo">Fondo</option>
+                    </select>
+        
+                    <button onclick="acreditarTarjeta()" class="btn btn-blue" style="margin-top: 10px;">
+                        Confirmar Acreditación Real
+                    </button>
+                </div>
+
                 <div class="seccion-form" style="border: 1px solid #22c55e; margin-top: 20px;">
-                    <h3 style="color: #22c55e;">Venta de Dólares (Cambio de Divisas)</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                         <input type="number" id="cambio-usd" placeholder="U$D a vender" style="margin-bottom: 0;">
                         <input type="number" id="cambio-tasa" placeholder="Cotización (Ej: 1100)" style="margin-bottom: 0;">
