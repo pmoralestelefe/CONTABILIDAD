@@ -591,23 +591,32 @@ function render() {
 window.venderDolares = function() {
     const usd = parseFloat(document.getElementById('cambio-usd').value);
     const tasa = parseFloat(document.getElementById('cambio-tasa').value);
+    const destino = document.getElementById('cambio-destino').value; // Nueva variable de destino
     
     if (usd > 0 && tasa > 0) {
+        // Validación de saldo
         if (usd > (db.cajas.dolares || 0)) {
-            alert("Error: No tienes suficientes dólares registrados en caja para esta operación.");
+            alert("Error: No tienes suficientes dólares en caja.");
             return;
         }
         
         const pesosObtenidos = usd * tasa;
         
-        // Saca de dólares y mete en efectivo
+        // 1. Restamos los dólares físicos
         db.cajas.dolares -= usd;
-        db.cajas.efectivo += pesosObtenidos;
         
+        // 2. Sumamos los pesos a la caja elegida (dinámicamente)
+        db.cajas[destino] += pesosObtenidos;
+        
+        // Limpiamos campos y actualizamos
         document.getElementById('cambio-usd').value = "";
         document.getElementById('cambio-tasa').value = "";
-        actualizar();
-        alert(`Cambio exitoso: Salieron U$D ${usd} e ingresaron $${pesosObtenidos.toLocaleString()} a la caja de Efectivo.`);
+        
+        actualizar(); // Sube los cambios a Firebase y refresca la pantalla
+        
+        alert(`Operación PAC exitosa:\nVendiste U$D ${usd}\nIngresaron $${pesosObtenidos.toLocaleString()} a la caja de ${destino.toUpperCase()}.`);
+    } else {
+        alert("Por favor completa el monto en dólares y la cotización.");
     }
 };
 
