@@ -99,16 +99,15 @@
                     <button onclick="venderDolares()" class="btn btn-blue" style="background: #16a34a; margin-top: 5px;">Registrar Venta y Acreditar</button>
             </div>
         </div>
-
-        <div id="tab-clientes" class="tab-content" style="display:none;">
-            <div class="seccion-form" style="border: 1px solid var(--blue);">
-                <h4 style="margin:0">Nueva Hoja de Obra</h4>
-                <input type="text" id="cli-nombre" placeholder="Nombre del Cliente">
-                <input type="text" id="cli-tel" placeholder="Teléfono (Ej: 351...)">
-                <input type="text" id="cli-obra" placeholder="Descripción de la Obra">
-                <input type="number" id="cli-presupuesto" placeholder="Presupuesto Total $">
-                <button onclick="crearCliente()" class="btn btn-blue">Crear Hoja</button>
-            </div>
+    </div> <div id="tab-clientes" class="tab-content" style="display:none;">
+        <div class="seccion-form" style="border: 1px solid var(--blue);">
+            <h4 style="margin:0">Nueva Hoja de Obra</h4>
+            <input type="text" id="cli-nombre" placeholder="Nombre del Cliente">
+            <input type="text" id="cli-tel" placeholder="Teléfono (Ej: 351...)">
+            <input type="text" id="cli-obra" placeholder="Descripción de la Obra">
+            <input type="number" id="cli-presupuesto" placeholder="Presupuesto Total $">
+            <button onclick="agregarCliente()" class="btn btn-blue">Crear Hoja</button>
+        </div>
             <div id="contenedor-clientes"></div>
         </div>
 
