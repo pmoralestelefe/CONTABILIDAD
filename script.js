@@ -98,6 +98,16 @@ function iniciarConexionDB() {
             }
 
             cargarMes(periodoSeleccionado);
+        } else {
+            // NUEVO: Inicializar la app si Firebase está completamente vacío
+            const mesActual = new Date().toISOString().slice(0,7);
+            periodoSeleccionado = mesActual;
+            masterDB = {
+                periodoActual: mesActual,
+                meses: {}
+            };
+            cargarMes(mesActual);
+            actualizar(); // Guarda la estructura base inicial en Firebase
         }
     });
 }
@@ -201,19 +211,20 @@ window.resetMes = function() {
 
 window.agregarCliente = function() {
     const nom = document.getElementById('cli-nombre').value;
-    const tel = document.getElementById('cli-tel').value; // Nueva línea
+    const tel = document.getElementById('cli-tel').value; 
     const obr = document.getElementById('cli-obra').value;
     const pre = parseFloat(document.getElementById('cli-presupuesto').value);
 
     if(nom && pre > 0) {
         const nuevo = {
             id: Date.now(),
-            nombre: nom,
-            telefono: tel || "Sin teléfono", // Guardamos el número
+            nom: nom,              // CORREGIDO: antes decía "nombre"
+            telefono: tel || "",   
             obra: obr,
-            presupuesto: pre,
+            coti: pre,             // CORREGIDO: antes decía "presupuesto"
             pagos: [],
             gastos: [],
+            materiales: [],        // Agregado para evitar errores de cálculo
             terminado: false
         };
         db.clientes.push(nuevo);
@@ -227,7 +238,6 @@ window.agregarCliente = function() {
         actualizar();
     }
 };
-
 // NUEVO: Borrar cliente por completo si no se concretó
 window.eliminarCliente = function(id) {
     if(confirm("¿Seguro que deseas ELIMINAR este cliente por completo? Esta acción no se puede deshacer.")) {
