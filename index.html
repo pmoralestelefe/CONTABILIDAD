@@ -82,22 +82,21 @@
 
             <div class="seccion-form" style="border: 1px solid #334155;">
                 <h3>Traspasos y Acreditaciones</h3>
-                <div class="seccion-form" style="border: 1px solid #22c55e;">
-                    <h3>Venta de Dólares a Efectivo</h3>
+                <div class="seccion-form" style="border: 1px solid #22c55e; margin-top: 20px;">
+                    <h3 style="color: #22c55e;">Venta de Dólares (Cambio de Divisas)</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                         <input type="number" id="cambio-usd" placeholder="U$D a vender" style="margin-bottom: 0;">
-                        <input type="number" id="cambio-tasa" placeholder="Cotización (Ej: 1000)" style="margin-bottom: 0;">
+                        <input type="number" id="cambio-tasa" placeholder="Cotización (Ej: 1100)" style="margin-bottom: 0;">
                     </div>
-                    <button onclick="venderDolares()" class="btn btn-blue" style="background: #16a34a; font-size: 13px;">Ingresar Pesos a Caja</button>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                    <input type="number" id="trans-monto" placeholder="Monto Total a mover $" style="margin-bottom: 0;">
-                    <input type="number" id="trans-comi" placeholder="Comisión Banco $ (Opcional)" style="margin-bottom: 0;">
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <button onclick="transferirBancoFondo()" class="btn btn-blue" style="font-size: 11px;">Banco a Fondo</button>
-                    <button onclick="acreditarTarjeta()" class="btn btn-blue" style="font-size: 11px; background: #8b5cf6;">Acreditar Tarjetas</button>
-                </div>
+    
+                    <label style="font-size: 12px; color: #94a3b8;">Enviar pesos obtenidos a:</label>
+                    <select id="cambio-destino" style="margin-top: 5px;">
+                        <option value="efectivo">Efectivo ($)</option>
+                        <option value="banco">Banco</option>
+                        <option value="fondo">Fondo</option>
+                    </select>
+
+                    <button onclick="venderDolares()" class="btn btn-blue" style="background: #16a34a; margin-top: 5px;">Registrar Venta y Acreditar</button>
             </div>
         </div>
 
